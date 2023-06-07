@@ -4,7 +4,19 @@
     "web": {
       "bundler": "metro"
     },
-    "name": "my-app",
-    "slug": "my-app"
+    "name": "ArchKontrol",
+    "slug": "my-app",
+    "icon": "./assets/images/architecture.png",
+    "extra": {
+      "eas": {
+        "projectId": "7ed077cc-feff-41a8-8495-1886e189aaec"
+      }
+    },
+    "android": {
+      "package": "com.daamian.myapp"
+    },
+    "ios": {
+      "bundleIdentifier": "com.daamian.myapp"
+    }
   }
 }

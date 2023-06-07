@@ -11,7 +11,6 @@ import {
 	Image,
 	TextInput,
 } from 'react-native'
-import { useRoute } from '@react-navigation/native'
 import { Camera } from 'expo-camera'
 import * as MediaLibrary from 'expo-media-library'
 import axios from 'axios'
@@ -22,39 +21,49 @@ import { COLORS, SIZES, icons, images } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
 import * as Google from 'expo-auth-session/providers/google'
 import * as FileSystem from 'expo-file-system'
+import { elementsData15 } from '../dataElements.js'
 import * as SecureStore from 'expo-secure-store'
-import { elementsData1 } from '../dataElements.js'
 import { useNavigation } from '@react-navigation/native'
+import { useRoute } from '@react-navigation/native'
+
 
 webBrowser.maybeCompleteAuthSession()
 
-const elements = elementsData1
-console.log(elements)
+let elements = elementsData15
 const STORAGE_KEY = 'authToken'
-
-const One = () => {
+const Fifteen = () => {
 	const route = useRoute()
 	const { title } = route.params
 	const navigation = useNavigation()
-
+	React.useLayoutEffect(() => {
+		navigation.setOptions({
+			headerTitle: title,
+		})
+	}, [title])
 	/*moduł dotyczący logowania do google*/
 	const [accessToken, setAccessToken] = React.useState(null)
-	const [request, response, promptAsync] = Google.useAuthRequest({
-		clientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
-		androidClientId: '399573477414-bchnbbu5sdp3uv2o6euneq9jeui11oej.apps.googleusercontent.com',
-		expoClientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
-		scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive'],
-	})
+
+	const getAuthToken = async () => {
+		try {
+			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+			console.log('Zapisany token uwierzytelniający:', token)
+			return token
+		} catch (error) {
+			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
+			return null
+		}
+	}
 
 	const gdrive = new GDrive()
 
 	gdrive.accessToken = accessToken
 
 	useEffect(() => {
-		;(async () => {
-			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+		const fetchData = async () => {
+			const token = await getAuthToken()
 			setAccessToken(token)
-		})()
+		}
+		fetchData()
 	}, [])
 
 	useEffect(() => {
@@ -72,61 +81,14 @@ const One = () => {
 				.then(res => {
 					setDriveFiles(res.data.files)
 					console.log('Files:', res.data.files)
-					console.log({ accessToken })
+					console.log('accessToken', accessToken)
 				})
 				.catch(err => {
 					console.error('Error fetching files:', err)
+					console.log('accessToken', accessToken)
 				})
 		}
 	}, [accessToken])
-
-	useEffect(() => {
-		;(async () => {
-			const authToken = await getAuthToken()
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		})()
-	}, [])
-
-	const handleLogin = async () => {
-		promptAsync()
-		try {
-			const authToken = await getAuthToken() // Wywołanie funkcji getAuthToken
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-		}
-	}
-
-	const handleLogout = async () => {
-		await SecureStore.deleteItemAsync(STORAGE_KEY)
-		setAccessToken(null)
-		try {
-			const authToken = await getAuthToken() // Wywołanie funkcji getAuthToken
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-		}
-	}
-
-	const getAuthToken = async () => {
-		try {
-			const token = await SecureStore.getItemAsync(STORAGE_KEY)
-			console.log('Zapisany token uwierzytelniający:', token)
-			return token
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-			return null
-		}
-	}
-
-	const saveAuthToken = async token => {
-		try {
-			await SecureStore.setItemAsync(STORAGE_KEY, token)
-			console.log('Token uwierzytelniający został zapisany.')
-		} catch (error) {
-			console.log('Błąd podczas zapisywania tokenu uwierzytelniającego:', error)
-		}
-	}
 
 	/*moduł dotyczący zapisywania zdjęcia do google*/
 	const parentId = '1AF-FZqNgiIQAaBecq5Z8WBBp1vO8WkvS'
@@ -215,7 +177,7 @@ const One = () => {
 			newState[index][contentIndex] = value
 			return newState
 		})
-		setCommentIndex(contentIndex)
+		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
 	const handleCommentChange = (index, contentIndex, text) => {
@@ -279,7 +241,7 @@ const One = () => {
 	}
 
 	useEffect(() => {
-		;(async () => {
+		;(async () => { 
 			MediaLibrary.requestPermissionsAsync()
 			const cameraStatus = await Camera.requestCameraPermissionsAsync()
 			setHasCameraPermission(cameraStatus.status === 'granted')
@@ -287,15 +249,11 @@ const One = () => {
 	}, [])
 
 	useEffect(() => {
-		if (response?.type === 'success') {
-			setAccessToken(response.authentication.accessToken)
-			accessToken && fetchUserInfo()
-			console.log({ responseToken: response.authentication.accessToken })
+		if (accessToken) {
+			fetchUserInfo()
 			ShowUserInfo()
-			setUser(response.user) // Aktualizuj stan użytkownika
-			saveAuthToken(response.authentication.accessToken)
 		}
-	}, [response, accessToken])
+	}, [accessToken])
 
 	const accessTokenImage = accessToken
 
@@ -342,8 +300,6 @@ const One = () => {
 						console.log('Error uploading file:', err)
 					})
 
-				//test(assetInfo.uri, fileName) // Pass fileName to test function
-				// Move setImage to the end of the function
 				setImage(null)
 			} catch (error) {
 				console.log(error)
@@ -399,12 +355,6 @@ const One = () => {
 			}
 		}
 	}
-
-	React.useLayoutEffect(() => {
-		navigation.setOptions({
-			headerTitle: title,
-		})
-	}, [title])
 
 	return (
 		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
@@ -520,19 +470,8 @@ const One = () => {
 					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
 				</TouchableOpacity>
 			)}
-			<View>
-				{!accessToken ? (
-					<Button title='Zaloguj się przez Google' onPress={handleLogin} />
-				) : (
-					<>
-						<Text>Zalogowano jako: {userInfo?.name}</Text>
-						<Button title='Wyloguj' onPress={handleLogout} />
-						{/* Pozostała część komponentu */}
-					</>
-				)}
-			</View>
 		</View>
 	)
 }
 
-export default One
+export default Fifteen
