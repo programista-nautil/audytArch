@@ -10,6 +10,7 @@ import {
 	Linking,
 	Image,
 	TextInput,
+	Alert,
 } from 'react-native'
 import { Camera } from 'expo-camera'
 import * as MediaLibrary from 'expo-media-library'
@@ -25,7 +26,6 @@ import { elementsData15 } from '../dataElements.js'
 import * as SecureStore from 'expo-secure-store'
 import { useNavigation } from '@react-navigation/native'
 import { useRoute } from '@react-navigation/native'
-
 
 webBrowser.maybeCompleteAuthSession()
 
@@ -234,14 +234,16 @@ const Fifteen = () => {
 			)
 			.then(response => {
 				console.log('Odpowiedź:', response.data)
+				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 			})
 			.catch(error => {
 				console.log('Błąd:', error)
+				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
 			})
 	}
 
 	useEffect(() => {
-		;(async () => { 
+		;(async () => {
 			MediaLibrary.requestPermissionsAsync()
 			const cameraStatus = await Camera.requestCameraPermissionsAsync()
 			setHasCameraPermission(cameraStatus.status === 'granted')
@@ -421,19 +423,19 @@ const Fifteen = () => {
 													</Text>
 												</TouchableOpacity>
 											</View>
-											<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-												<TouchableOpacity
-													style={styles.cameraIconContainer}
-													onPress={() => handleCameraButtonPress(index, content)}>
-													<Image
-														source={icons.camera}
-														style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
-													/>
-												</TouchableOpacity>
-												<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
-													<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
-												</TouchableOpacity>
-											</View>
+										</View>
+										<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+											<TouchableOpacity
+												style={styles.cameraIconContainer}
+												onPress={() => handleCameraButtonPress(index, content)}>
+												<Image
+													source={icons.camera}
+													style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
+												/>
+											</TouchableOpacity>
+											<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
+												<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
+											</TouchableOpacity>
 										</View>
 										<View style={styles.commentContainer}>
 											<TextInput
@@ -452,16 +454,14 @@ const Fifteen = () => {
 			</ScrollView>
 
 			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFill}>
-					<Camera style={styles.camera} type={type} ref={cameraRef} flashMode={flash}>
+				<View style={StyleSheet.absoluteFillObject}>
+					<Camera style={StyleSheet.absoluteFillObject} type={type} ref={cameraRef} flashMode={flash}>
 						<View style={styles.cameraButtons}>
 							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
 						</View>
 					</Camera>
 					<View style={styles.fullScreenCameraButtons}>
-						{/* Dodaj przyciski zrobienia zdjęcia, zamknięcia aparatu na pełny ekran i anulowania */}
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} />
-						<Button title='Zamknij' onPress={closeFullScreenCamera} />
+						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} style={styles.fullScreenCameraButton} />
 					</View>
 				</View>
 			)}

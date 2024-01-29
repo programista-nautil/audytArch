@@ -22,16 +22,16 @@ import { COLORS, SIZES, icons, images } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
 import * as Google from 'expo-auth-session/providers/google'
 import * as FileSystem from 'expo-file-system'
-import { elementsData13 } from '../dataElements.js'
+import { elementsData17 } from '../dataElements.js'
 import * as SecureStore from 'expo-secure-store'
 import { useNavigation } from '@react-navigation/native'
 import { useRoute } from '@react-navigation/native'
 
 webBrowser.maybeCompleteAuthSession()
 
-let elements = elementsData13
+let elements = elementsData17
 const STORAGE_KEY = 'authToken'
-const Thirteen = () => {
+const Seventeen = () => {
 	const route = useRoute()
 	const { title } = route.params
 	const navigation = useNavigation()
@@ -150,7 +150,7 @@ const Thirteen = () => {
 	const [elementName, setElementName] = useState('')
 	const cameraRef = useRef(null)
 	const [openSections, setOpenSections] = useState({})
-	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(false))
+	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(true))
 	const [switchValuesContent, setSwitchValuesContent] = useState(
 		Array(elements.length)
 			.fill(null)
@@ -159,14 +159,11 @@ const Thirteen = () => {
 	const [commentIndex, setCommentIndex] = useState(null) // New state variable for comment index
 	const [comment, setComment] = useState('') // New state variable for comment
 	const [driveFiles, setDriveFiles] = useState([])
-
-	const handleInputChange = (index, contentIndex, text) => {
-		setElements(prevState => {
-			const updatedElements = [...prevState]
-			updatedElements[index].content[contentIndex].value = text
-			return updatedElements
-		})
-	}
+	const [commentsValuesContent, setCommentsValuesContent] = useState(
+		Array(elements.length)
+			.fill(null)
+			.map(_ => Array(3).fill(false))
+	)
 
 	const handleToggle = index => {
 		setOpenSections(prevState => ({
@@ -185,17 +182,29 @@ const Thirteen = () => {
 			newState[index][contentIndex] = value
 			return newState
 		})
-		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
-	const handleCommentChange = (index, contentIndex, text) => {
-		setComments(prevState => {
-			const updatedComments = [...prevState]
-			updatedComments[index] = {
-				...updatedComments[index],
-				[contentIndex]: text,
-			}
-			return updatedComments
+	const handleCommentContent = (index, contentIndex, text) => {
+		setCommentsValuesContent(prevState => {
+			const newState = [...prevState]
+			newState[index][contentIndex] = text
+			return newState
+		})
+	}
+
+	const handleSwitchSubContent = (index, contentIndex, subContentIndex, value) => {
+		setSwitchValuesContent(prevState => {
+			const newState = [...prevState]
+			newState[index][contentIndex][subContentIndex] = value
+			return newState
+		})
+	}
+
+	const handleCommentSubContent = (index, contentIndex, subContentIndex, text) => {
+		setCommentsValuesContent(prevState => {
+			const newState = [...prevState]
+			newState[index][contentIndex][subContentIndex] = text
+			return newState
 		})
 	}
 
@@ -369,129 +378,152 @@ const Thirteen = () => {
 	return (
 		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
 			<ScrollView style={styles.container}>
-				{elements.map((element, index) => (
+				{elementsData17.map((element, index) => (
 					<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
-						<View
-							style={{
-								flexDirection: 'row',
-								alignItems: 'center',
-							}}>
-							<Text
-								style={{
-									flex: 1,
-									fontSize: 16,
-									color: COLORS.tertiary,
-								}}>
-								{element.name}
-							</Text>
-							<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
-						</View>
-						{openSections[index] && (
-							<View style={{ backgroundColor: COLORS.gray2 }}>
-								{element.content.map((content, contentIndex) => (
-									<View
-										key={contentIndex}
+						
+								<View
+									style={{
+										flexDirection: 'row',
+										alignItems: 'center',
+									}}>
+									<Text
 										style={{
-											backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
+											flex: 1,
+											fontSize: 16,
+											color: COLORS.tertiary,
 										}}>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												justifyContent: 'space-between',
-											}}>
-											{typeof content === 'object' ? (
-												<TextInput
-													style={styles.input}
-													placeholder={content.name}
-													value={content.value}
-													onChangeText={text => {
-														handleInputChange(index, contentIndex, text)
-													}}
-												/>
-											) : (
+										{element.name}
+									</Text>
+									<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
+								</View>
+						{element.content.map((content, contentIndex) => (
+							<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
+								<View
+									style={{
+										flexDirection: 'row',
+										alignItems: 'center',
+									}}
+									key={contentIndex}>
+									{typeof content === 'object' ? (
+										<>
+											<Text style={[styles.tabText, { flex: 1 }]}>{content.name}</Text>
+											{content.content.map((subContent, subContentIndex) => (
+												<React.Fragment key={subContentIndex}>
+													<View
+														style={{
+															flexDirection: 'row',
+															alignItems: 'center',
+															justifyContent: 'space-between',
+														}}>
+														<Text style={[styles.tabText, { flex: 1 }]}>{subContent}</Text>
+														<View style={styles.stateButtonContainer}>
+															<TouchableOpacity
+																style={[
+																	styles.stateButton,
+																	switchValuesContent[index][contentIndex][subContentIndex] === 'Tak' && {
+																		backgroundColor: COLORS.primary,
+																	},
+																]}
+																onPress={() => handleSwitchSubContent(index, contentIndex, subContentIndex, 'Tak')}>
+																<Text
+																	style={[
+																		styles.stateButtonText,
+																		switchValuesContent[index][contentIndex][subContentIndex] === 'Tak' && {
+																			color: COLORS.white,
+																		},
+																	]}>
+																	Tak
+																</Text>
+															</TouchableOpacity>
+															<TouchableOpacity
+																style={[
+																	styles.stateButton,
+																	switchValuesContent[index][contentIndex][subContentIndex] === 'Nie' && {
+																		backgroundColor: COLORS.primary,
+																	},
+																]}
+																onPress={() => handleSwitchSubContent(index, contentIndex, subContentIndex, 'Nie')}>
+																<Text
+																	style={[
+																		styles.stateButtonText,
+																		switchValuesContent[index][contentIndex][subContentIndex] === 'Nie' && {
+																			color: COLORS.white,
+																		},
+																	]}>
+																	Nie
+																</Text>
+															</TouchableOpacity>
+														</View>
+													</View>
+													<TextInput
+														style={styles.inputComment}
+														placeholder='Add Comment...'
+														onChangeText={text => handleCommentSubContent(index, contentIndex, subContentIndex, text)}
+														value={commentsValuesContent[index][contentIndex][subContentIndex]}
+													/>
+												</React.Fragment>
+											))}
+										</>
+									) : (
+										<React.Fragment>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													justifyContent: 'space-between',
+												}}>
 												<Text style={[styles.tabText, { flex: 1 }]}>{content}</Text>
-											)}
-
-											<View style={styles.stateButtonContainer}>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-													<Text
+												<View style={styles.stateButtonContainer}>
+													<TouchableOpacity
 														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
-														]}>
-														Tak
-													</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-													<Text
+															styles.stateButton,
+															switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
+														]}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
+														<Text
+															style={[
+																styles.stateButtonText,
+																switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
+															]}>
+															Tak
+														</Text>
+													</TouchableOpacity>
+													<TouchableOpacity
 														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
-														]}>
-														Nie
-													</Text>
-												</TouchableOpacity>
+															styles.stateButton,
+															switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
+														]}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
+														<Text
+															style={[
+																styles.stateButtonText,
+																switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
+															]}>
+															Nie
+														</Text>
+													</TouchableOpacity>
+												</View>
 											</View>
-										</View>
-										<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-											<TouchableOpacity
-												style={styles.cameraIconContainer}
-												onPress={() => handleCameraButtonPress(index, content)}>
-												<Image
-													source={icons.camera}
-													style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
-												/>
-											</TouchableOpacity>
-											<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
-												<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
-											</TouchableOpacity>
-										</View>
-										<View style={styles.commentContainer}>
 											<TextInput
-												style={styles.commentInput}
-												placeholder='Wpisz uwagi'
-												value={comments[index]?.[contentIndex] || ''}
-												onChangeText={text => handleCommentChange(index, contentIndex, text)}
+												style={styles.inputComment}
+												placeholder='Add Comment...'
+												onChangeText={text => handleCommentContent(index, contentIndex, text)}
+												value={commentsValuesContent[index][contentIndex]}
 											/>
-										</View>
-									</View>
-								))}
-							</View>
-						)}
-					</TouchableOpacity>
+										</React.Fragment>
+									)}
+								</View>
+							</TouchableOpacity>
+						))}
+						</TouchableOpacity>
+					
 				))}
-			</ScrollView>
-
-			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFillObject}>
-					<Camera style={StyleSheet.absoluteFillObject} type={type} ref={cameraRef} flashMode={flash}>
-						<View style={styles.cameraButtons}>
-							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
-						</View>
-					</Camera>
-					<View style={styles.fullScreenCameraButtons}>
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} style={styles.fullScreenCameraButton} />
-					</View>
-				</View>
-			)}
-			{!isFullScreenCameraVisible && ( // Dodaj warunek renderowania przycisku "Wyślij"
 				<TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
 					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
 				</TouchableOpacity>
-			)}
+			</ScrollView>
 		</View>
 	)
 }
 
-export default Thirteen
+export default Seventeen

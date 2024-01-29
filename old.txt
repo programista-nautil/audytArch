@@ -1,0 +1,323 @@
+{
+  "expo": {
+    "scheme": "acme",
+    "web": {
+      "bundler": "metro"
+    },
+    "name": "ArchKontrol",
+    "slug": "my-app",
+    "icon": "./assets/images/architecture.png",
+    "extra": {
+      "eas": {
+        "projectId": "7ed077cc-feff-41a8-8495-1886e189aaec"
+      }
+    },
+    "android": {
+      "package": "com.daamian.myapp"
+    },
+    "ios": {
+      "bundleIdentifier": "com.daamian.myapp"
+    }
+  }
+}
+ 
+
+ login
+ import React, { useState, useEffect, useRef } from 'react'
+import { View, StyleSheet, SafeAreaView, Button, Text } from 'react-native'
+import { Stack, useRouter } from 'expo-router'
+import { GoogleLogin, ScreenHeaderBtn, Popularjobs, Welcome } from '../..'
+import { COLORS, icons, images, SIZES } from '../../../constants'
+import * as SecureStore from 'expo-secure-store'
+import * as Google from 'expo-auth-session/providers/google'
+import * as webBrowser from 'expo-web-browser'
+
+webBrowser.maybeCompleteAuthSession()
+
+const LoginScreen = () => {
+	const router = useRouter()
+	const STORAGE_KEY = 'authToken'
+
+	const [accessToken, setAccessToken] = React.useState(null)
+	const [userInfo, setUserInfo] = useState(null)
+	const [user, setUser] = React.useState(null)
+	const [request, response, promptAsync] = Google.useAuthRequest({
+		clientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
+		androidClientId: '399573477414-bchnbbu5sdp3uv2o6euneq9jeui11oej.apps.googleusercontent.com',
+		expoClientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
+		scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive'],
+		redirectUri: 'https://auth.expo.io/@daamian/my-app',
+		prompt: 'select_account',
+	})
+
+	useEffect(() => {
+		;(async () => {
+			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+			setAccessToken(token)
+		})()
+	}, [])
+
+	const [isLoggedIn, setIsLoggedIn] = useState(false)
+	useEffect(() => {
+		if (response?.type === 'success') {
+			setAccessToken(response.authentication.accessToken)
+			accessToken && fetchUserInfo()
+			ShowUserInfo()
+			setUser(response.user) // Aktualizuj stan użytkownika
+			saveAuthToken(response.authentication.accessToken)
+			setIsLoggedIn(true)
+			router.push('../../')
+		}
+	}, [response, accessToken])
+
+	const ShowUserInfo = async () => {
+		try {
+			const response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+				headers: { Authorization: `Bearer ${accessToken}` },
+			})
+
+			const user = await response.json()
+			setUserInfo(user)
+		} catch (error) {
+			console.log('Błąd pobierania danych użytkownika', error)
+		}
+	}
+
+	const fetchUserInfo = async () => {
+		let response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+			headers: { Authorization: `Bearer ${accessToken}` },
+		})
+		let user = await response.json()
+		setUserInfo(user)
+		console.log({ user: user })
+	}
+
+	const getAuthToken = async () => {
+		try {
+			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+			return token
+		} catch (error) {
+			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
+			return null
+		}
+	}
+
+	const saveAuthToken = async token => {
+		try {
+			await SecureStore.setItemAsync(STORAGE_KEY, token)
+		} catch (error) {
+			console.log('Błąd podczas zapisywania tokenu uwierzytelniającego:', error)
+		}
+	}
+
+	const handleLogin = async () => {
+		try {
+			await promptAsync({ useProxy: true })
+		} catch (error) {
+			console.log('Błąd podczas próby logowania:', error)
+
+			// Sprawdź, czy błąd zawiera informacje o URI
+			if (error.message.includes('redirect_uri')) {
+				// Wyświetl informacje o oczekiwanym URI
+				console.log('Oczekiwany adres URL przekierowania:', request.redirectUri)
+				Alert.alert('Błąd logowania', `Problem z URI przekierowania. Oczekiwany adres URL: ${request.redirectUri}`)
+			} else {
+				// Ogólny komunikat o błędzie
+				Alert.alert('Błąd logowania', 'Wystąpił problem podczas logowania. Sprawdź konfigurację.')
+			}
+		}
+	}
+
+	return (
+		<SafeAreaView
+			style={{ flex: 1, backgroundColor: COLORS.lightWhite, alignItems: 'center', justifyContent: 'center' }}>
+			<Stack.Screen
+				options={{
+					headerStyle: { backgroundColor: COLORS.lightWhite },
+					headerShadowVisible: false,
+					headerLeft: () => <ScreenHeaderBtn iconUrl={icons.menu} dimension='60%' />,
+					headerRight: () => <ScreenHeaderBtn iconUrl={images.profile} dimension='100%' />,
+					headerTitle: '',
+				}}
+			/>
+			<View style={{ flex: 1, padding: SIZES.medium, alignItems: 'center', justifyContent: 'center' }}>
+				{!isLoggedIn ? (
+					<View>
+						<Text style={{ fontSize: 32, fontWeight: 'bold' }}>
+							Zaloguj się za pomocą{' '}
+							<Text style={{ color: '#4285F4' }}>
+								G<Text style={{ color: '#EA4336' }}>o</Text>
+								<Text style={{ color: '#FBBC04' }}>o</Text>
+								<Text style={{ color: '#4285F4' }}>g</Text>
+								<Text style={{ color: '#34A853' }}>l</Text>
+								<Text style={{ color: '#EA4336' }}>e</Text>
+							</Text>
+						</Text>
+						<Button title='Zaloguj się przez Google' onPress={handleLogin} />
+					</View>
+				) : (
+					<View>
+						<Welcome />
+						<Popularjobs />
+					</View>
+				)}
+			</View>
+		</SafeAreaView>
+	)
+}
+
+export default LoginScreen
+
+
+//v2 login
+import React, { useState, useEffect, useRef } from 'react'
+import { View, StyleSheet, SafeAreaView, Button, Text } from 'react-native'
+import { Stack, useRouter } from 'expo-router'
+import { GoogleLogin, ScreenHeaderBtn, Popularjobs, Welcome } from '../..'
+import { COLORS, icons, images, SIZES } from '../../../constants'
+import * as SecureStore from 'expo-secure-store'
+import * as Google from 'expo-auth-session/providers/google'
+import * as webBrowser from 'expo-web-browser'
+import * as AuthSession from 'expo-auth-session'
+const { makeRedirectUri } = AuthSession
+
+webBrowser.maybeCompleteAuthSession()
+
+const LoginScreen = () => {
+	const router = useRouter()
+	const STORAGE_KEY = 'authToken'
+
+	const [accessToken, setAccessToken] = React.useState(null)
+	const [userInfo, setUserInfo] = useState(null)
+	const [user, setUser] = React.useState(null)
+	const [request, response, promptAsync] = Google.useAuthRequest({
+		clientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
+		androidClientId: '399573477414-bchnbbu5sdp3uv2o6euneq9jeui11oej.apps.googleusercontent.com',
+		expoClientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
+		scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive'],
+		prompt: 'select_account',
+		redirectUri: makeRedirectUri({ scheme: 'my-app' }),
+	})
+
+	const googleAuthConfig = {
+		androidClientId: '399573477414-bchnbbu5sdp3uv2o6euneq9jeui11oej.apps.googleusercontent.com',
+		webClientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
+	}
+
+	useEffect(() => {
+		;(async () => {
+			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+			setAccessToken(token)
+		})()
+	}, [])
+
+	const [isLoggedIn, setIsLoggedIn] = useState(false)
+	useEffect(() => {
+		if (response?.type === 'success') {
+			setAccessToken(response.authentication.accessToken)
+			accessToken && fetchUserInfo()
+			ShowUserInfo()
+			setUser(response.user) // Aktualizuj stan użytkownika
+			saveAuthToken(response.authentication.accessToken)
+			setIsLoggedIn(true)
+			router.push('../../')
+		}
+	}, [response, accessToken])
+
+	const ShowUserInfo = async () => {
+		try {
+			const response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+				headers: { Authorization: `Bearer ${accessToken}` },
+			})
+
+			const user = await response.json()
+			setUserInfo(user)
+		} catch (error) {
+			console.log('Błąd pobierania danych użytkownika', error)
+		}
+	}
+
+	const fetchUserInfo = async () => {
+		let response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+			headers: { Authorization: `Bearer ${accessToken}` },
+		})
+		let user = await response.json()
+		setUserInfo(user)
+		console.log({ user: user })
+	}
+
+	const getAuthToken = async () => {
+		try {
+			const token = await SecureStore.getItemAsync(STORAGE_KEY)
+			return token
+		} catch (error) {
+			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
+			return null
+		}
+	}
+
+	const saveAuthToken = async token => {
+		try {
+			await SecureStore.setItemAsync(STORAGE_KEY, token)
+		} catch (error) {
+			console.log('Błąd podczas zapisywania tokenu uwierzytelniającego:', error)
+		}
+	}
+
+	const handleLogin = async () => {
+		try {
+			await promptAsync({ useProxy: true })
+		} catch (error) {
+			console.log('Błąd podczas próby logowania:', error)
+
+			// Sprawdź, czy błąd zawiera informacje o URI
+			if (error.message.includes('redirect_uri')) {
+				// Wyświetl informacje o oczekiwanym URI
+				console.log('Oczekiwany adres URL przekierowania:', request.redirectUri)
+				Alert.alert('Błąd logowania', `Problem z URI przekierowania. Oczekiwany adres URL: ${request.redirectUri}`)
+			} else {
+				// Ogólny komunikat o błędzie
+				Alert.alert('Błąd logowania', 'Wystąpił problem podczas logowania. Sprawdź konfigurację.')
+			}
+		}
+	}
+
+	return (
+		<SafeAreaView
+			style={{ flex: 1, backgroundColor: COLORS.lightWhite, alignItems: 'center', justifyContent: 'center' }}>
+			<Stack.Screen
+				options={{
+					headerStyle: { backgroundColor: COLORS.lightWhite },
+					headerShadowVisible: false,
+					headerLeft: () => <ScreenHeaderBtn iconUrl={icons.menu} dimension='60%' />,
+					headerRight: () => <ScreenHeaderBtn iconUrl={images.profile} dimension='100%' />,
+					headerTitle: '',
+				}}
+			/>
+			<View style={{ flex: 1, padding: SIZES.medium, alignItems: 'center', justifyContent: 'center' }}>
+				{!isLoggedIn ? (
+					<View>
+						<Text style={{ fontSize: 32, fontWeight: 'bold' }}>
+							Zaloguj się za pomocą{' '}
+							<Text style={{ color: '#4285F4' }}>
+								G<Text style={{ color: '#EA4336' }}>o</Text>
+								<Text style={{ color: '#FBBC04' }}>o</Text>
+								<Text style={{ color: '#4285F4' }}>g</Text>
+								<Text style={{ color: '#34A853' }}>l</Text>
+								<Text style={{ color: '#EA4336' }}>e</Text>
+							</Text>
+						</Text>
+						<Button title='Zaloguj się przez Google' onPress={handleLogin} />
+					</View>
+				) : (
+					<View>
+						<Welcome />
+						<Popularjobs />
+					</View>
+				)}
+			</View>
+		</SafeAreaView>
+	)
+}
+
+export default LoginScreen
