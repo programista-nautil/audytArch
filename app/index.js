@@ -1,37 +1,68 @@
-import { useState, useEffect } from 'react'
-import { View, ScrollView, SafeAreaView, Text, StyleSheet} from 'react-native'
-import { Stack, useRouter } from 'expo-router'
+import React from 'react'
+import { SafeAreaView, View, StyleSheet } from 'react-native'
+import { createStackNavigator } from '@react-navigation/stack'
 
-import { COLORS, SIZES, icons, images } from '../constants'
-import { Nearbyjobs, Popularjobs, ScreenHeaderBtn, Welcome } from '../components'
+import { COLORS, SIZES } from '../constants'
+import LoginScreen from '../components/home/loginScreen/GoogleLogin' // Załóżmy, że to jest poprawna ścieżka
+import Welcome from '../components/home/welcome/Welcome' // Załóżmy, że to jest poprawna ścieżka
+import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, że to jest poprawna ścieżka
 
-const Home = () => {
-	const router = useRouter()
+const Stack = createStackNavigator()
 
+const HomeScreen = () => {
 	return (
-		<SafeAreaView style={{ flex: 1, backgroundColor: COLORS.lightWhite }}>
-			<Stack.Screen
-				options={{
-					headerStyle: { backgroundColor: COLORS.lightWhite },
-					headerShadowVisible: false,
-					headerLeft: () => (<ScreenHeaderBtn iconUrl={icons.menu} dimension='60%' />),
-					headerRight: () => (<ScreenHeaderBtn iconUrl={images.profile} dimension='100%' />),
-					headerTitle: '',
-				}}
-			/>
-			
-				<View style={{ flex: 1, padding: SIZES.medium }}>
-					<Welcome />
-					<Popularjobs />
-					
-				</View>
-			
+		<SafeAreaView style={styles.container}>
+			<Welcome />
+			<Popularjobs />
+			{/* <LoginScreen /> */}
+			{/* Inne komponenty, które chcesz umieścić na ekranie głównym */}
 		</SafeAreaView>
 	)
 }
 
-export default Home
+const HomeStackNavigator = () => {
+	return (
+		<Stack.Navigator>
+			<Stack.Screen
+				name='Audyt Architektoniczny'
+				component={HomeScreen}
+				options={{
+					headerStyle: { backgroundColor: COLORS.lightWhite },
+					headerShadowVisible: false,
+					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
+				}}
+			/>
+			{/* <Stack.Screen
+				name='Logowanie'
+				component={LoginScreen}
+				options={{
+					headerStyle: { backgroundColor: COLORS.lightWhite },
+					headerShadowVisible: false,
+					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
+				}}
+			/> */}
+			<Stack.Screen
+				name='Popularjobs'
+				component={Popularjobs}
+				options={{
+					title: 'Popular Jobs',
+					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
+				}}
+			/>
+			{/* Tutaj możesz dodać inne ekrany, które chcesz umieścić w stosie nawigacyjnym */}
+		</Stack.Navigator>
+	)
+}
+
+export default HomeStackNavigator
 
 const styles = StyleSheet.create({
-
+	container: {
+		flex: 1,
+		backgroundColor: COLORS.lightWhite,
+		alignItems: 'center',
+		justifyContent: 'center',
+		padding: SIZES.medium,
+		paddingTop: 40,
+	},
 })

@@ -55,24 +55,16 @@ const styles = StyleSheet.create({
 		color: COLORS.white,
 	},
 
-	cameraContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
 	cameraButton: {
 		backgroundColor: 'blue',
-		paddingHorizontal: 10,
-		paddingVertical: 5,
-		borderRadius: 5,
+		paddingHorizontal: 20,
+		paddingVertical: 10,
+		borderRadius: 10,
+		marginBottom: 20,
+		marginTop: 20,
 	},
 	cameraButtonText: {
 		color: 'white',
-	},
-	camera: {
-		flex: 1,
-		width: '100%',
-		height: '100%',
 	},
 	cameraControls: {
 		backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -134,6 +126,22 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
+	},
+	fullScreenCameraButtons: {
+		position: 'absolute', // Przyciski powinny być wyświetlane na wierzchu podglądu aparatu
+		bottom: 20, // Umieść przyciski na dole ekranu
+		width: '100%', // Przyciski powinny zajmować pełną szerokość ekranu
+		flexDirection: 'row',
+		justifyContent: 'center',
+		paddingHorizontal: 20, // Dodaj padding do przycisków
+	},
+	fullScreenCameraButton: {
+		width: 200, // Ustaw szerokość przycisku
+		height: 60, // Ustaw wysokość przycisku
+		justifyContent: 'center', // Wyśrodkuj tekst wewnątrz przycisku
+		alignItems: 'center', // Wyśrodkuj tekst wewnątrz przycisku
+		backgroundColor: '#3897f0', // Ustaw kolor tła przycisku
+		borderRadius: 30, // Zaokrąglij rogi przycisku
 	},
 })
 

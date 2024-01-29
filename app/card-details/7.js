@@ -10,6 +10,7 @@ import {
 	Linking,
 	Image,
 	TextInput,
+	Alert,
 } from 'react-native'
 import { Camera } from 'expo-camera'
 import * as MediaLibrary from 'expo-media-library'
@@ -30,7 +31,7 @@ webBrowser.maybeCompleteAuthSession()
 
 let elements = elementsData7
 const STORAGE_KEY = 'authToken'
-const Seven = () => {
+const Six = () => {
 	const route = useRoute()
 	const { title } = route.params
 	const navigation = useNavigation()
@@ -233,9 +234,11 @@ const Seven = () => {
 			)
 			.then(response => {
 				console.log('Odpowiedź:', response.data)
+				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 			})
 			.catch(error => {
 				console.log('Błąd:', error)
+				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
 			})
 	}
 
@@ -378,45 +381,70 @@ const Seven = () => {
 						{openSections[index] && (
 							<View style={{ backgroundColor: COLORS.gray2 }}>
 								{element.content.map((content, contentIndex) => (
-									<View key={contentIndex} style={{}}>
-										{content.type === 'input' ? (
-											// Renderuj pole tekstowe dla typu 'input'
-											<View style={styles.inputContainer}>
-												<TextInput
-													style={styles.input}
-													placeholder={content.name}
-													value={content.value}
-													onChangeText={text => handleContentChange(index, contentIndex, text)}
+									<View
+										key={contentIndex}
+										style={{
+											backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
+										}}>
+										<View
+											style={{
+												flexDirection: 'row',
+												alignItems: 'center',
+												justifyContent: 'space-between',
+											}}>
+											<Text style={[styles.tabText, { flex: 1 }]}>{content}</Text>
+											<View style={styles.stateButtonContainer}>
+												<TouchableOpacity
+													style={[
+														styles.stateButton,
+														switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
+													]}
+													onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
+													<Text
+														style={[
+															styles.stateButtonText,
+															switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
+														]}>
+														Tak
+													</Text>
+												</TouchableOpacity>
+												<TouchableOpacity
+													style={[
+														styles.stateButton,
+														switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
+													]}
+													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
+													<Text
+														style={[
+															styles.stateButtonText,
+															switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
+														]}>
+														Nie
+													</Text>
+												</TouchableOpacity>
+											</View>
+										</View>
+										<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+											<TouchableOpacity
+												style={styles.cameraIconContainer}
+												onPress={() => handleCameraButtonPress(index, content)}>
+												<Image
+													source={icons.camera}
+													style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
 												/>
-												{content.name === 'Lokalizacja' && (
-													<TouchableOpacity
-														style={styles.cameraButton}
-														onPress={() => handleCameraButtonPress(index, content)}>
-														<Image source={icons.camera} style={styles.cameraIcon} />
-													</TouchableOpacity>
-												)}
-											</View>
-										) : content.type === 'choice' ? (
-											// Renderuj sekcję 'Tak', 'Nie', 'Niedotyczy' dla typu 'choice'
-											<View style={styles.choiceContainer}>
-												<Text style={styles.choiceLabel}>{content.name}</Text>
-												<TouchableOpacity
-													style={styles.choiceButton}
-													onPress={() => handleChoiceChange(index, contentIndex, 'Tak')}>
-													<Text style={styles.choiceButtonText}>Tak</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={styles.choiceButton}
-													onPress={() => handleChoiceChange(index, contentIndex, 'Nie')}>
-													<Text style={styles.choiceButtonText}>Nie</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={styles.choiceButton}
-													onPress={() => handleChoiceChange(index, contentIndex, 'Niedotyczy')}>
-													<Text style={styles.choiceButtonText}>Niedotyczy</Text>
-												</TouchableOpacity>
-											</View>
-										) : null}
+											</TouchableOpacity>
+											<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
+												<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
+											</TouchableOpacity>
+										</View>
+										<View style={styles.commentContainer}>
+											<TextInput
+												style={styles.commentInput}
+												placeholder='Wpisz uwagi'
+												value={comments[index]?.[contentIndex] || ''}
+												onChangeText={text => handleCommentChange(index, contentIndex, text)}
+											/>
+										</View>
 									</View>
 								))}
 							</View>
@@ -426,16 +454,14 @@ const Seven = () => {
 			</ScrollView>
 
 			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFill}>
-					<Camera style={styles.camera} type={type} ref={cameraRef} flashMode={flash}>
+				<View style={StyleSheet.absoluteFillObject}>
+					<Camera style={StyleSheet.absoluteFillObject} type={type} ref={cameraRef} flashMode={flash}>
 						<View style={styles.cameraButtons}>
 							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
 						</View>
 					</Camera>
 					<View style={styles.fullScreenCameraButtons}>
-						{/* Dodaj przyciski zrobienia zdjęcia, zamknięcia aparatu na pełny ekran i anulowania */}
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} />
-						<Button title='Zamknij' onPress={closeFullScreenCamera} />
+						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} style={styles.fullScreenCameraButton} />
 					</View>
 				</View>
 			)}
@@ -448,4 +474,4 @@ const Seven = () => {
 	)
 }
 
-export default Seven
+export default Six

@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 	},
 	stateButton: {
-		width: 50,
+		width: 80,
 		height: 40,
 		borderRadius: 20,
 		alignItems: 'center',
@@ -134,6 +134,22 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
+	},
+	fullScreenCameraButtons: {
+		position: 'absolute', // Przyciski powinny być wyświetlane na wierzchu podglądu aparatu
+		bottom: 20, // Umieść przyciski na dole ekranu
+		width: '100%', // Przyciski powinny zajmować pełną szerokość ekranu
+		flexDirection: 'row',
+		justifyContent: 'center',
+		paddingHorizontal: 20, // Dodaj padding do przycisków
+	},
+	fullScreenCameraButton: {
+		width: 200, // Ustaw szerokość przycisku
+		height: 60, // Ustaw wysokość przycisku
+		justifyContent: 'center', // Wyśrodkuj tekst wewnątrz przycisku
+		alignItems: 'center', // Wyśrodkuj tekst wewnątrz przycisku
+		backgroundColor: '#3897f0', // Ustaw kolor tła przycisku
+		borderRadius: 30, // Zaokrąglij rogi przycisku
 	},
 })
 

@@ -10,6 +10,7 @@ import {
 	Linking,
 	Image,
 	TextInput,
+	Alert,
 } from 'react-native'
 import { Camera } from 'expo-camera'
 import * as MediaLibrary from 'expo-media-library'
@@ -26,12 +27,11 @@ import * as SecureStore from 'expo-secure-store'
 import { useNavigation } from '@react-navigation/native'
 import { useRoute } from '@react-navigation/native'
 
-
 webBrowser.maybeCompleteAuthSession()
 
 let elements = elementsData4
 const STORAGE_KEY = 'authToken'
-const Four = () => {
+const Thirteen = () => {
 	const route = useRoute()
 	const { title } = route.params
 	const navigation = useNavigation()
@@ -234,14 +234,16 @@ const Four = () => {
 			)
 			.then(response => {
 				console.log('Odpowiedź:', response.data)
+				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 			})
 			.catch(error => {
 				console.log('Błąd:', error)
+				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
 			})
 	}
 
 	useEffect(() => {
-		;(async () => { 
+		;(async () => {
 			MediaLibrary.requestPermissionsAsync()
 			const cameraStatus = await Camera.requestCameraPermissionsAsync()
 			setHasCameraPermission(cameraStatus.status === 'granted')
@@ -452,16 +454,14 @@ const Four = () => {
 			</ScrollView>
 
 			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFill}>
-					<Camera style={styles.camera} type={type} ref={cameraRef} flashMode={flash}>
+				<View style={StyleSheet.absoluteFillObject}>
+					<Camera style={StyleSheet.absoluteFillObject} type={type} ref={cameraRef} flashMode={flash}>
 						<View style={styles.cameraButtons}>
 							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
 						</View>
 					</Camera>
 					<View style={styles.fullScreenCameraButtons}>
-						{/* Dodaj przyciski zrobienia zdjęcia, zamknięcia aparatu na pełny ekran i anulowania */}
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} />
-						<Button title='Zamknij' onPress={closeFullScreenCamera} />
+						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} style={styles.fullScreenCameraButton} />
 					</View>
 				</View>
 			)}
@@ -474,4 +474,4 @@ const Four = () => {
 	)
 }
 
-export default Four
+export default Thirteen

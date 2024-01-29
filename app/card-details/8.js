@@ -10,13 +10,14 @@ import {
 	Linking,
 	Image,
 	TextInput,
+	Alert,
 } from 'react-native'
 import { Camera } from 'expo-camera'
 import * as MediaLibrary from 'expo-media-library'
 import axios from 'axios'
 import * as webBrowser from 'expo-web-browser'
 import { GDrive, MimeTypes, GoogleDriveApi } from '@robinbobin/react-native-google-drive-api-wrapper'
-import styles from './1.style'
+import styles from './2.style'
 import { COLORS, SIZES, icons, images } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
 import * as Google from 'expo-auth-session/providers/google'
@@ -26,12 +27,11 @@ import * as SecureStore from 'expo-secure-store'
 import { useNavigation } from '@react-navigation/native'
 import { useRoute } from '@react-navigation/native'
 
-
 webBrowser.maybeCompleteAuthSession()
 
 let elements = elementsData8
 const STORAGE_KEY = 'authToken'
-const eight = () => {
+const Seven = () => {
 	const route = useRoute()
 	const { title } = route.params
 	const navigation = useNavigation()
@@ -138,6 +138,7 @@ const eight = () => {
 		}
 	}
 
+	const [pictureCount, setPictureCount] = useState(0)
 	const [userInfo, setUserInfo] = useState(null)
 	const [user, setUser] = React.useState(null)
 	const [isCameraVisible, setIsCameraVisible] = useState({})
@@ -145,12 +146,13 @@ const eight = () => {
 	const [image, setImage] = useState(null)
 	const [type, setType] = useState(Camera.Constants.Type.back)
 	const [flash, setFlash] = useState(Camera.Constants.FlashMode.off)
-	const [comments, setComments] = useState(Array(elements.length).fill('')) // New state for comments
+	const [comments, setComments] = useState(Array(elementsData8.length - 2).fill(''))
+	const [switchValues, setSwitchValues] = useState(Array(elementsData8.length).fill(false))
+	const [selectedStates, setSelectedStates] = useState(elementsData8.map(element => element.content.map(() => '')))
 	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
 	const [elementName, setElementName] = useState('')
 	const cameraRef = useRef(null)
 	const [openSections, setOpenSections] = useState({})
-	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(false))
 	const [switchValuesContent, setSwitchValuesContent] = useState(
 		Array(elements.length)
 			.fill(null)
@@ -159,16 +161,14 @@ const eight = () => {
 	const [commentIndex, setCommentIndex] = useState(null) // New state variable for comment index
 	const [comment, setComment] = useState('') // New state variable for comment
 	const [driveFiles, setDriveFiles] = useState([])
+	const numberOfInputs = elementsData8.reduce((count, elem) => (elem.type === 'input' ? count + 1 : count), 0)
+	const [inputValues, setInputValues] = useState(Array(numberOfInputs).fill({ name: '', value: '' }))
 
 	const handleToggle = index => {
 		setOpenSections(prevState => ({
 			...prevState,
 			[index]: !prevState[index],
 		}))
-	}
-
-	const handleSwitch = (index, value) => {
-		setSwitchValues(prevState => prevState.map((val, i) => (i === index ? value : val)))
 	}
 
 	const handleSwitchContent = (index, contentIndex, value) => {
@@ -180,68 +180,98 @@ const eight = () => {
 		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
-	const handleCommentChange = (index, contentIndex, text) => {
+	const handleCommentChange = (index, text) => {
 		setComments(prevState => {
 			const updatedComments = [...prevState]
-			updatedComments[index] = {
-				...updatedComments[index],
-				[contentIndex]: text,
-			}
+			updatedComments[index] = text
 			return updatedComments
 		})
 	}
 
-	const handleSubmit = () => {
-		const updatedElements = elements.map((element, index) => {
-			const updatedContent = element.content.map((text, contentIndex) => {
-				const state = switchValuesContent[index][contentIndex]
-				let updatedText = text
+	const handleSwitch = (index, value) => {
+		setSwitchValues(prevState => {
+			const updatedSwitchValues = [...prevState]
+			updatedSwitchValues[index] = value
+			return updatedSwitchValues
+		})
+	}
 
-				if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
-					const lowercaseState = state.toLowerCase()
-					const pattern = new RegExp(`\\b${state}\\b`, 'gi')
-					updatedText = updatedText.replace(pattern, lowercaseState)
-				}
-
-				return {
-					text: updatedText,
-					state: state !== undefined ? state : 'Nie dotyczy',
-					comment: comments[index]?.[contentIndex] || '', // Include the corresponding comment from the state
-				}
-			})
-
-			return {
-				...element,
-				isOpen: !!openSections[index],
-				content: updatedContent,
-			}
+	const handleStateSelection = (parentIndex, index, state) => {
+		setSelectedStates(prevState => {
+			const updatedSelectedStates = [...prevState]
+			updatedSelectedStates[parentIndex][index] = state
+			return updatedSelectedStates
 		})
 
-		const switchValuesFormatted = switchValues.map(value => (value ? 'Tak' : 'Nie'))
+		console.log(`Updated selectedStates: ${JSON.stringify(selectedStates)}`)
+	}
 
+	const handleSubmit = () => {
 		const data = {
-			switchValues: switchValuesFormatted,
-			elements: updatedElements,
-			comment: comment,
+			inputValues: inputValues,
+			selectedStates: selectedStates,
+			comments: comments,
 		}
 
-		console.log('Dane do wysłania:', JSON.stringify(data, null, 2))
+		const transformedData = transformData(data)
+		console.log('Dane do wysłania:', JSON.stringify(transformedData, null, 2))
 
 		axios
 			.post(
 				'https://script.google.com/macros/s/AKfycbw4w8NIpmIbreIvYhVIM20VVNHaJP3RlJIQHSGIu-fDS4Ib60tRIELpxxHPAxAAXTFhxg/exec',
-				data
+				transformedData
 			)
 			.then(response => {
 				console.log('Odpowiedź:', response.data)
+				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 			})
 			.catch(error => {
 				console.log('Błąd:', error)
+				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
 			})
 	}
 
+	const transformData = data => {
+		const inputValuesCopy = data.inputValues.map(input => input.value)
+
+		// Dołącz skopiowane wartości na początku `data.selectedStates[1]`
+		data.selectedStates[1] = [...inputValuesCopy, ...data.selectedStates[1]]
+
+		// Usuń pierwsze 3 elementy z `data.selectedStates[1]`
+		data.selectedStates[1].splice(3, 3)
+
+		const elements = []
+
+		// Przyjmujemy, że indeks w `selectedStates` odpowiada indeksowi w `elementsData8`.
+		data.selectedStates.forEach((states, index) => {
+			console.log(`-----states-----: ${JSON.stringify(states)}`)
+			const elementContent = states.map((state, contentIndex) => {
+				return {
+					text: elementsData8[index].content[contentIndex].name, // Użyj pola `name` jako `text`.
+					state: state === '' ? false : state, // Jeżeli `state` jest pusty, ustawiamy `false`. W przeciwnym przypadku `true`.
+					comment: data.comments[contentIndex] || '', // Dodajemy komentarz lub pusty string, jeżeli nie ma komentarza.
+				}
+			})
+
+			elements.push({
+				name: elementsData8[index].name,
+				content: elementContent,
+				isOpen: true,
+			})
+		})
+
+		// Tworzymy ostateczną strukturę danych.
+		const finalData = {
+			switchValues: data.inputValues.map(input => input.value), // Przypuszczamy, że `inputValues` odpowiada `switchValues`.
+			elements: elements,
+			comment: '', // Dodajemy pusty string jako komentarz, jeżeli nie jest dostarczony inny.
+		}
+
+		return finalData
+	}
+
 	useEffect(() => {
-		;(async () => { 
+		;(async () => {
 			MediaLibrary.requestPermissionsAsync()
 			const cameraStatus = await Camera.requestCameraPermissionsAsync()
 			setHasCameraPermission(cameraStatus.status === 'granted')
@@ -286,6 +316,7 @@ const eight = () => {
 			try {
 				const asset = await MediaLibrary.createAssetAsync(uri)
 				alert('Picture saved! 🎉')
+				setPictureCount(prevCount => prevCount + 1)
 				const assetInfo = await MediaLibrary.getAssetInfoAsync(asset)
 
 				// Limit the contentName to the first 6 characters and use it as the file name.
@@ -320,9 +351,9 @@ const eight = () => {
 		return status === 'granted'
 	}
 
-	const handleCameraButtonPress = async (index, contentName) => {
-		console.log('handleCameraButtonPress', index, contentName.substring(0, 6))
-		setElementName(contentName.substring(0, 6))
+	const handleCameraButtonPress = async () => {
+		const nextPictureNumber = pictureCount + 1
+		setElementName(`7.${nextPictureNumber}`)
 		setIsFullScreenCameraVisible(true)
 	}
 	const handleFullScreenCameraButtonPress = () => {
@@ -356,122 +387,124 @@ const eight = () => {
 		}
 	}
 
-	return (
-		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
-			<ScrollView style={styles.container}>
-				{elements.map((element, index) => (
-					<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
-						<View
-							style={{
-								flexDirection: 'row',
-								alignItems: 'center',
-							}}>
+	const renderElement = (element, index, parentIndex) => {
+		if (element.type === 'input') {
+			return (
+				<View key={index}>
+					<Text>{element.name}</Text>
+					<TextInput
+						value={inputValues[index]?.value}
+						onChangeText={text => {
+							const newInputValues = [...inputValues]
+							newInputValues[index] = { ...newInputValues[index], value: text }
+							setInputValues(newInputValues)
+						}}
+						placeholder='Wpisz wartość...'
+					/>
+				</View>
+			)
+		} else if (element.type === 'choice') {
+			return (
+				<View
+					key={index}
+					style={{
+						flexDirection: 'column',
+						justifyContent: 'space-between',
+						alignItems: 'flex-start',
+						marginVertical: 5,
+					}}>
+					<Text style={{ backgroundColor: COLORS.secondary }}>{element.name}</Text>
+					<View style={[styles.stateButtonContainer, { flexDirection: 'row', alignItems: 'center' }]}>
+						<TouchableOpacity
+							onPress={() => handleStateSelection(parentIndex, index, 'Tak')}
+							style={[
+								styles.stateButton,
+								selectedStates[parentIndex][index] === 'Tak' && { backgroundColor: COLORS.primary },
+							]}>
 							<Text
-								style={{
-									flex: 1,
-									fontSize: 16,
-									color: COLORS.tertiary,
-								}}>
-								{element.name}
+								style={[
+									styles.stateButtonText,
+									selectedStates[parentIndex][index] === 'Tak' && { color: COLORS.white },
+								]}>
+								Tak
 							</Text>
-							<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
-						</View>
-						{openSections[index] && (
-							<View style={{ backgroundColor: COLORS.gray2 }}>
-								{element.content.map((content, contentIndex) => (
-									<View
-										key={contentIndex}
-										style={{
-											backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
-										}}>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												justifyContent: 'space-between',
-											}}>
-											<Text style={[styles.tabText, { flex: 1 }]}>{content}</Text>
-											<View style={styles.stateButtonContainer}>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
-														]}>
-														Tak
-													</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
-														]}>
-														Nie
-													</Text>
-												</TouchableOpacity>
-											</View>
-											<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-												<TouchableOpacity
-													style={styles.cameraIconContainer}
-													onPress={() => handleCameraButtonPress(index, content)}>
-													<Image
-														source={icons.camera}
-														style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
-													/>
-												</TouchableOpacity>
-												<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
-													<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
-												</TouchableOpacity>
-											</View>
-										</View>
-										<View style={styles.commentContainer}>
-											<TextInput
-												style={styles.commentInput}
-												placeholder='Wpisz uwagi'
-												value={comments[index]?.[contentIndex] || ''}
-												onChangeText={text => handleCommentChange(index, contentIndex, text)}
-											/>
-										</View>
-									</View>
-								))}
-							</View>
-						)}
-					</TouchableOpacity>
-				))}
-			</ScrollView>
-
-			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFill}>
-					<Camera style={styles.camera} type={type} ref={cameraRef} flashMode={flash}>
-						<View style={styles.cameraButtons}>
-							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
-						</View>
-					</Camera>
-					<View style={styles.fullScreenCameraButtons}>
-						{/* Dodaj przyciski zrobienia zdjęcia, zamknięcia aparatu na pełny ekran i anulowania */}
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} />
-						<Button title='Zamknij' onPress={closeFullScreenCamera} />
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => handleStateSelection(parentIndex, index, 'Nie')}
+							style={[
+								styles.stateButton,
+								selectedStates[parentIndex][index] === 'Nie' && { backgroundColor: COLORS.primary },
+							]}>
+							<Text
+								style={[
+									styles.stateButtonText,
+									selectedStates[parentIndex][index] === 'Nie' && { color: COLORS.white },
+								]}>
+								Nie
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => handleStateSelection(parentIndex, index, 'Nie dotyczy')}
+							style={[
+								styles.stateButton,
+								selectedStates[parentIndex][index] === 'Nie dotyczy' && { backgroundColor: COLORS.primary },
+							]}>
+							<Text
+								style={[
+									styles.stateButtonText,
+									selectedStates[parentIndex][index] === 'Nie dotyczy' && { color: COLORS.white },
+								]}>
+								Nie dotyczy
+							</Text>
+						</TouchableOpacity>
 					</View>
 				</View>
-			)}
-			{!isFullScreenCameraVisible && ( // Dodaj warunek renderowania przycisku "Wyślij"
-				<TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
-				</TouchableOpacity>
-			)}
+			)
+		}
+	}
+
+	return (
+		<View style={{ flex: 1, flexDirection: 'column', backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
+			<ScrollView style={styles.container}>
+				{elementsData8.map((element, parentIndex) => (
+					<View key={parentIndex}>
+						{element.content.map((content, index) => renderElement(content, index, parentIndex))}
+						<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+							<TouchableOpacity
+								style={styles.cameraIconContainer}
+								onPress={() => handleCameraButtonPress(parentIndex, element.content)}>
+								<Image
+									source={icons.camera}
+									style={[styles.cameraIcon, isCameraVisible[parentIndex] && styles.cameraIconActive]}
+								/>
+							</TouchableOpacity>
+							<TouchableOpacity onPress={() => handleCameraButtonPress(parentIndex, element.content)}>
+								<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
+							</TouchableOpacity>
+						</View>
+					</View>
+				))}
+
+				{isFullScreenCameraVisible && (
+					<View style={StyleSheet.absoluteFillObject}>
+						<Camera style={StyleSheet.absoluteFillObject} type={type} ref={cameraRef} flashMode={flash}>
+							<View style={styles.cameraButtons}>
+								{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
+							</View>
+						</Camera>
+						<View style={styles.fullScreenCameraButtons}>
+							<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} style={styles.fullScreenCameraButton} />
+						</View>
+					</View>
+				)}
+				{!isFullScreenCameraVisible && ( // Dodaj warunek renderowania przycisku "Wyślij"
+					<TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
+						<Text style={styles.submitButtonText}>WYŚLIJ</Text>
+					</TouchableOpacity>
+				)}
+			</ScrollView>
 		</View>
 	)
 }
 
-export default eight
+export default Seven

@@ -1,202 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react'
-import {
-	View,
-	Text,
-	ScrollView,
-	TouchableOpacity,
-	Switch,
-	Button,
-	StyleSheet,
-	Linking,
-	Image,
-	TextInput,
-} from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, Switch, Image, TextInput, Alert, StyleSheet } from 'react-native'
 import { useRoute } from '@react-navigation/native'
-import { Camera } from 'expo-camera'
-import * as MediaLibrary from 'expo-media-library'
-import axios from 'axios'
-import * as webBrowser from 'expo-web-browser'
-import { GDrive, MimeTypes, GoogleDriveApi } from '@robinbobin/react-native-google-drive-api-wrapper'
 import styles from './1.style'
-import { COLORS, SIZES, icons, images } from '../../constants'
+import { COLORS, icons } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
-import * as Google from 'expo-auth-session/providers/google'
-import * as FileSystem from 'expo-file-system'
-import * as SecureStore from 'expo-secure-store'
+import CameraModule from '../../components/home/camera/CameraModule.js'
 import { elementsData1 } from '../dataElements.js'
-import { useNavigation } from '@react-navigation/native'
-
-webBrowser.maybeCompleteAuthSession()
+import axios from 'axios'
 
 const elements = elementsData1
-console.log(elements)
-const STORAGE_KEY = 'authToken'
 
 const One = () => {
 	const route = useRoute()
 	const { title } = route.params
-	const navigation = useNavigation()
 
-	/*moduł dotyczący logowania do google*/
-	const [accessToken, setAccessToken] = React.useState(null)
-	const [request, response, promptAsync] = Google.useAuthRequest({
-		clientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
-		androidClientId: '399573477414-bchnbbu5sdp3uv2o6euneq9jeui11oej.apps.googleusercontent.com',
-		expoClientId: '399573477414-ndn9kb11avof808qb2fstj1r5feoo456.apps.googleusercontent.com',
-		scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive'],
-	})
-
-	const gdrive = new GDrive()
-
-	gdrive.accessToken = accessToken
-
-	useEffect(() => {
-		;(async () => {
-			const token = await SecureStore.getItemAsync(STORAGE_KEY)
-			setAccessToken(token)
-		})()
-	}, [])
-
-	useEffect(() => {
-		if (accessToken) {
-			axios
-				.get('https://www.googleapis.com/drive/v3/files', {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-					params: {
-						q: "'1AF-FZqNgiIQAaBecq5Z8WBBp1vO8WkvS' in parents",
-						fields: 'files(id, name)',
-					},
-				})
-				.then(res => {
-					setDriveFiles(res.data.files)
-					console.log('Files:', res.data.files)
-					console.log({ accessToken })
-				})
-				.catch(err => {
-					console.error('Error fetching files:', err)
-				})
-		}
-	}, [accessToken])
-
-	useEffect(() => {
-		;(async () => {
-			const authToken = await getAuthToken()
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		})()
-	}, [])
-
-	const handleLogin = async () => {
-		promptAsync()
-		try {
-			const authToken = await getAuthToken() // Wywołanie funkcji getAuthToken
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-		}
-	}
-
-	const handleLogout = async () => {
-		await SecureStore.deleteItemAsync(STORAGE_KEY)
-		setAccessToken(null)
-		try {
-			const authToken = await getAuthToken() // Wywołanie funkcji getAuthToken
-			console.log('Odczytany token uwierzytelniający:', authToken)
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-		}
-	}
-
-	const getAuthToken = async () => {
-		try {
-			const token = await SecureStore.getItemAsync(STORAGE_KEY)
-			console.log('Zapisany token uwierzytelniający:', token)
-			return token
-		} catch (error) {
-			console.log('Błąd podczas odczytywania tokenu uwierzytelniającego:', error)
-			return null
-		}
-	}
-
-	const saveAuthToken = async token => {
-		try {
-			await SecureStore.setItemAsync(STORAGE_KEY, token)
-			console.log('Token uwierzytelniający został zapisany.')
-		} catch (error) {
-			console.log('Błąd podczas zapisywania tokenu uwierzytelniającego:', error)
-		}
-	}
-
-	/*moduł dotyczący zapisywania zdjęcia do google*/
-	const parentId = '1AF-FZqNgiIQAaBecq5Z8WBBp1vO8WkvS'
-
-	const uploadFile = async (token, parentId, uri, base64, filename) => {
-		const fileUri = uri
-		const fileInfo = await FileSystem.getInfoAsync(fileUri)
-		const file = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' })
-		const mimeType = 'image/jpeg'
-
-		console.log({ token: token, parentId: parentId, uri: uri, filename: filename })
-
-		const boundary = 'foo_bar_baz'
-		const delimiter = '\r\n--' + boundary + '\r\n'
-		const close_delim = '\r\n--' + boundary + '--'
-
-		const body =
-			delimiter +
-			'Content-Type: application/json\r\n\r\n' +
-			JSON.stringify({
-				name: filename,
-				mimeType: 'image/jpeg',
-				parents: [parentId],
-			}) +
-			'\r\n' +
-			delimiter +
-			'Content-Type: ' +
-			mimeType +
-			'\r\n' +
-			'Content-Transfer-Encoding: base64\r\n' +
-			'\r\n' +
-			base64 +
-			close_delim
-
-		try {
-			const res = await axios.post('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', body, {
-				headers: {
-					'Content-Type': 'multipart/related; boundary=' + boundary,
-					Authorization: 'Bearer ' + token,
-				},
-			})
-
-			return res.data
-		} catch (error) {
-			console.error('Error during file upload:', error.response.status, error.response.data)
-			throw error
-		}
-	}
-
-	const [userInfo, setUserInfo] = useState(null)
-	const [user, setUser] = React.useState(null)
-	const [isCameraVisible, setIsCameraVisible] = useState({})
-	const [hasCameraPermission, setHasCameraPermission] = useState(false)
-	const [image, setImage] = useState(null)
-	const [type, setType] = useState(Camera.Constants.Type.back)
-	const [flash, setFlash] = useState(Camera.Constants.FlashMode.off)
-	const [comments, setComments] = useState(Array(elements.length).fill('')) // New state for comments
+	const [openSections, setOpenSections] = useState({})
+	const [comments, setComments] = useState(Array(elements.length).fill(''))
 	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
 	const [elementName, setElementName] = useState('')
-	const cameraRef = useRef(null)
-	const [openSections, setOpenSections] = useState({})
 	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(false))
+	const [comment, setComment] = useState('') // New state variable for comment
 	const [switchValuesContent, setSwitchValuesContent] = useState(
 		Array(elements.length)
 			.fill(null)
 			.map(_ => Array(3).fill(false))
 	)
-	const [commentIndex, setCommentIndex] = useState(null) // New state variable for comment index
-	const [comment, setComment] = useState('') // New state variable for comment
-	const [driveFiles, setDriveFiles] = useState([])
 
 	const handleToggle = index => {
 		setOpenSections(prevState => ({
@@ -205,28 +33,25 @@ const One = () => {
 		}))
 	}
 
-	const handleSwitch = (index, value) => {
-		setSwitchValues(prevState => prevState.map((val, i) => (i === index ? value : val)))
-	}
-
-	const handleSwitchContent = (index, contentIndex, value) => {
-		setSwitchValuesContent(prevState => {
-			const newState = [...prevState]
-			newState[index][contentIndex] = value
-			return newState
-		})
-		setCommentIndex(contentIndex)
-	}
-
 	const handleCommentChange = (index, contentIndex, text) => {
 		setComments(prevState => {
 			const updatedComments = [...prevState]
-			updatedComments[index] = {
-				...updatedComments[index],
-				[contentIndex]: text,
+			if (!updatedComments[index]) {
+				updatedComments[index] = {}
 			}
+			updatedComments[index][contentIndex] = text
 			return updatedComments
 		})
+	}
+
+	const handleCameraButtonPress = (index, contentName) => {
+		setElementName(contentName.substring(0, 6))
+		setIsFullScreenCameraVisible(true)
+	}
+
+	const handlePictureTaken = uri => {
+		console.log('Zdjęcie zrobione:', uri)
+		// Logika zapisywania zdjęcia, może wykorzystać funkcję uploadFile
 	}
 
 	const handleSubmit = () => {
@@ -272,265 +97,79 @@ const One = () => {
 			)
 			.then(response => {
 				console.log('Odpowiedź:', response.data)
+				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 			})
 			.catch(error => {
 				console.log('Błąd:', error)
+				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
 			})
 	}
-
-	useEffect(() => {
-		;(async () => {
-			MediaLibrary.requestPermissionsAsync()
-			const cameraStatus = await Camera.requestCameraPermissionsAsync()
-			setHasCameraPermission(cameraStatus.status === 'granted')
-		})()
-	}, [])
-
-	useEffect(() => {
-		if (response?.type === 'success') {
-			setAccessToken(response.authentication.accessToken)
-			accessToken && fetchUserInfo()
-			console.log({ responseToken: response.authentication.accessToken })
-			ShowUserInfo()
-			setUser(response.user) // Aktualizuj stan użytkownika
-			saveAuthToken(response.authentication.accessToken)
-		}
-	}, [response, accessToken])
-
-	const accessTokenImage = accessToken
-
-	const ShowUserInfo = async () => {
-		try {
-			const response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			})
-
-			const user = await response.json()
-			setUserInfo(user)
-		} catch (error) {
-			// Add your own error handler here
-		}
-	}
-
-	const fetchUserInfo = async () => {
-		let response = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-			headers: { Authorization: `Bearer ${accessToken}` },
-		})
-		let user = await response.json()
-		setUserInfo(user)
-		console.log({ user: user })
-	}
-
-	const savePicture = async (uri, elementName, base64Data) => {
-		// Przyjmuj uri jako argument
-		console.log('Zapisuję zdjęcie na telefonie', uri) // Wydrukuj uri
-		if (uri) {
-			try {
-				const asset = await MediaLibrary.createAssetAsync(uri)
-				alert('Picture saved! 🎉')
-				const assetInfo = await MediaLibrary.getAssetInfoAsync(asset)
-
-				// Limit the contentName to the first 6 characters and use it as the file name.
-				const fileName = `${elementName}.jpg`
-				console.log({ uri })
-
-				uploadFile(accessToken, parentId, uri, base64Data, elementName)
-					.then(res => {
-						console.log('File uploaded:', res)
-					})
-					.catch(err => {
-						console.log('Error uploading file:', err)
-					})
-
-				//test(assetInfo.uri, fileName) // Pass fileName to test function
-				// Move setImage to the end of the function
-				setImage(null)
-			} catch (error) {
-				console.log(error)
-			}
-		} else {
-			console.log('Błąd: uri jest null podczas zapisywania zdjęcia.')
-		}
-	}
-
-	const getCameraPermission = async () => {
-		const permission = PermissionsAndroid.PERMISSIONS.CAMERA
-		const hasPermission = await PermissionsAndroid.check(permission)
-		if (hasPermission) {
-			return true
-		}
-
-		const status = await PermissionsAndroid.request(permission)
-		return status === 'granted'
-	}
-
-	const handleCameraButtonPress = async (index, contentName) => {
-		console.log('handleCameraButtonPress', index, contentName.substring(0, 6))
-		setElementName(contentName.substring(0, 6))
-		setIsFullScreenCameraVisible(true)
-	}
-	const handleFullScreenCameraButtonPress = () => {
-		setIsFullScreenCameraVisible(true)
-	}
-	const closeFullScreenCamera = () => {
-		setIsFullScreenCameraVisible(false)
-	}
-
-	const takeFullScreenPicture = async () => {
-		if (cameraRef.current) {
-			try {
-				const { uri } = await cameraRef.current.takePictureAsync()
-				const options = { quality: 0.5, base64: true }
-				const data = await cameraRef.current.takePictureAsync(options)
-				const base64Data = data.base64
-
-				console.log('Zdjęcie zrobione. URI:', uri) // Debug: wydrukuj uri
-
-				if (typeof uri === 'string') {
-					// Sprawdź, czy uri jest stringiem
-					await savePicture(uri, elementName, base64Data)
-				} else {
-					console.log('Błąd: uri nie jest stringiem, jest typu ', typeof uri) // Jeśli uri nie jest stringiem, wydrukuj jego typ
-				}
-
-				closeFullScreenCamera()
-			} catch (error) {
-				console.log('Błąd podczas robienia zdjęcia:', error)
-			}
-		}
-	}
-
-	React.useLayoutEffect(() => {
-		navigation.setOptions({
-			headerTitle: title,
-		})
-	}, [title])
 
 	return (
 		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
-			<ScrollView style={styles.container}>
-				{elements.map((element, index) => (
-					<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
-						<View
-							style={{
-								flexDirection: 'row',
-								alignItems: 'center',
-							}}>
-							<Text
+			{!isFullScreenCameraVisible && (
+				<ScrollView style={styles.container}>
+					{elements.map((element, index) => (
+						<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
+							<View
 								style={{
-									flex: 1,
-									fontSize: 16,
-									color: COLORS.tertiary,
+									flexDirection: 'row',
+									alignItems: 'center',
 								}}>
-								{element.name}
-							</Text>
-							<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
-						</View>
-						{openSections[index] && (
-							<View style={{ backgroundColor: COLORS.gray2 }}>
-								{element.content.map((content, contentIndex) => (
-									<View
-										key={contentIndex}
-										style={{
-											backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
-										}}>
+								<Text
+									style={{
+										flex: 1,
+										fontSize: 16,
+										color: COLORS.tertiary,
+									}}>
+									{element.name}
+								</Text>
+								<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
+							</View>
+							{openSections[index] && (
+								<View style={{ backgroundColor: COLORS.gray2 }}>
+									{element.content.map((content, contentIndex) => (
 										<View
+											key={contentIndex}
 											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												justifyContent: 'space-between',
+												backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
 											}}>
 											<Text style={[styles.tabText, { flex: 1 }]}>{content}</Text>
-											<View style={styles.stateButtonContainer}>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
-														]}>
-														Tak
-													</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
-													]}
-													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
-														]}>
-														Nie
-													</Text>
-												</TouchableOpacity>
-											</View>
-											<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-												<TouchableOpacity
-													style={styles.cameraIconContainer}
-													onPress={() => handleCameraButtonPress(index, content)}>
-													<Image
-														source={icons.camera}
-														style={[styles.cameraIcon, isCameraVisible[index] && styles.cameraIconActive]}
-													/>
-												</TouchableOpacity>
-												<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
-													<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
-												</TouchableOpacity>
+											<TouchableOpacity onPress={() => handleCameraButtonPress(index, content)}>
+												<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
+											</TouchableOpacity>
+											<View style={styles.commentContainer}>
+												<TextInput
+													style={styles.commentInput}
+													placeholder='Wpisz uwagi'
+													value={comments[index] || ''}
+													onChangeText={text => handleCommentChange(index, contentIndex, text)}
+												/>
 											</View>
 										</View>
-										<View style={styles.commentContainer}>
-											<TextInput
-												style={styles.commentInput}
-												placeholder='Wpisz uwagi'
-												value={comments[index]?.[contentIndex] || ''}
-												onChangeText={text => handleCommentChange(index, contentIndex, text)}
-											/>
-										</View>
-									</View>
-								))}
-							</View>
-						)}
-					</TouchableOpacity>
-				))}
-			</ScrollView>
+									))}
+								</View>
+							)}
+						</TouchableOpacity>
+					))}
+				</ScrollView>
+			)}
 
 			{isFullScreenCameraVisible && (
 				<View style={StyleSheet.absoluteFill}>
-					<Camera style={styles.camera} type={type} ref={cameraRef} flashMode={flash}>
-						<View style={styles.cameraButtons}>
-							{/* ... Dodaj przyciski i funkcje obsługujące zmianę typu aparatu i lampy błyskowej ... */}
-						</View>
-					</Camera>
-					<View style={styles.fullScreenCameraButtons}>
-						{/* Dodaj przyciski zrobienia zdjęcia, zamknięcia aparatu na pełny ekran i anulowania */}
-						<Button title='Zrób zdjęcie' onPress={takeFullScreenPicture} />
-						<Button title='Zamknij' onPress={closeFullScreenCamera} />
-					</View>
+					<CameraModule
+						onPictureTaken={handlePictureTaken}
+						uploadUrl='https://damian.nautil.info/googleGalleryApi/upload'
+						elementName={elementName}
+					/>
 				</View>
 			)}
-			{!isFullScreenCameraVisible && ( // Dodaj warunek renderowania przycisku "Wyślij"
+
+			{!isFullScreenCameraVisible && (
 				<TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
 					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
 				</TouchableOpacity>
 			)}
-			<View>
-				{!accessToken ? (
-					<Button title='Zaloguj się przez Google' onPress={handleLogin} />
-				) : (
-					<>
-						<Text>Zalogowano jako: {userInfo?.name}</Text>
-						<Button title='Wyloguj' onPress={handleLogout} />
-						{/* Pozostała część komponentu */}
-					</>
-				)}
-			</View>
 		</View>
 	)
 }
