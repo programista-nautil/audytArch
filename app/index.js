@@ -5,6 +5,7 @@ import { PaperProvider } from 'react-native-paper'
 import { COLORS, SIZES } from '../constants'
 import Welcome from '../components/home/welcome/Welcome' // Załóżmy, że to jest poprawna ścieżka
 import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, że to jest poprawna ścieżka
+import CameraScreen from '../components/home/camera/CameraScreen' // Załóżmy, że to jest poprawna ścieżka
 
 const Stack = createStackNavigator()
 
@@ -33,6 +34,7 @@ const HomeStackNavigator = () => {
 					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
 				}}
 			/>
+			<Stack.Screen name='CameraScreen' component={CameraScreen} />
 			{/* <Stack.Screen
 				name='Logowanie'
 				component={LoginScreen}

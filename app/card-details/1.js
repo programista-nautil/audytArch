@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Switch, Image, Alert, StyleSheet } from 'react-native'
-import { useRoute } from '@react-navigation/native'
+import { View, Text, ScrollView, TouchableOpacity, Switch, Image, Alert, StyleSheet, Button } from 'react-native'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import styles from './1.style'
 import { COLORS, icons } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
 import CameraModule from '../../components/home/camera/CameraModule.js'
+import CameraScreen from '../../components/home/camera/CameraScreen.js' // zaimportuj nowy ekran
 import { elementsData1 } from '../dataElements.js'
 import axios from 'axios'
 import * as ImagePicker from 'expo-image-picker'
 import { TextInput } from 'react-native-paper'
-import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { Link, Stack } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 const elements = elementsData1
 
 const One = () => {
+	const navigation = useNavigation() // Dodaj hook nawigacji
 	const route = useRoute()
 	const { title } = route.params
 
@@ -168,10 +171,21 @@ const One = () => {
 			})
 	}
 
-	
-
 	return (
 		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
+			<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
+				<SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
+					{/* Usuń <Stack.Screen /> i <Link> i zastąp Buttonem */}
+					<Button
+						title='Wróć'
+						onPress={() => {
+							navigation.navigate('CameraScreen') // Użyj navigation.goBack() do powrotu
+						}}
+					/>
+				</SafeAreaView>
+				{/* Reszta Twojego kodu */}
+			</View>
+
 			{!isFullScreenCameraVisible && (
 				<ScrollView style={styles.container}>
 					{elements.map((element, index) => (

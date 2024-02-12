@@ -19,7 +19,17 @@
 		"ios": {
 			"bundleIdentifier": "com.daamian.myapp"
 		},
-		"plugins": ["expo-dev-client"], // Dodaj plugin expo-dev-client
+		"plugins": [
+			"expo-dev-client",
+			[
+				"react-native-vision-camera",
+				{
+					"cameraPermissionText": "$(PRODUCT_NAME) potrzebne do robienia zdjęć.",
+					"enableMicrophonePermission": true,
+					"microphonePermissionText": "$(PRODUCT_NAME) potrzebne do nagrywania dźwięku."
+				}
+			]
+		],
 		"runtimeVersion": "1.0.0",
 		"updates": {
 			"url": "http://localhost:3000/api/manifest"
