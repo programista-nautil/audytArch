@@ -1,9 +1,8 @@
 import React from 'react'
-import { SafeAreaView, View, StyleSheet } from 'react-native'
+import { SafeAreaView, View, StyleSheet, AppRegistry } from 'react-native'
 import { createStackNavigator } from '@react-navigation/stack'
-
+import { PaperProvider } from 'react-native-paper'
 import { COLORS, SIZES } from '../constants'
-import LoginScreen from '../components/home/loginScreen/GoogleLogin' // Załóżmy, że to jest poprawna ścieżka
 import Welcome from '../components/home/welcome/Welcome' // Załóżmy, że to jest poprawna ścieżka
 import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, że to jest poprawna ścieżka
 
@@ -11,12 +10,14 @@ const Stack = createStackNavigator()
 
 const HomeScreen = () => {
 	return (
-		<SafeAreaView style={styles.container}>
-			<Welcome />
-			<Popularjobs />
-			{/* <LoginScreen /> */}
-			{/* Inne komponenty, które chcesz umieścić na ekranie głównym */}
-		</SafeAreaView>
+		<PaperProvider>
+			<SafeAreaView style={styles.container}>
+				<Welcome />
+				<Popularjobs />
+				{/* <LoginScreen /> */}
+				{/* Inne komponenty, które chcesz umieścić na ekranie głównym */}
+			</SafeAreaView>
+		</PaperProvider>
 	)
 }
 

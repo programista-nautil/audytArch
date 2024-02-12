@@ -300,51 +300,15 @@ const elementsData8 = [
 	{
 		name: 'Korytarze',
 		content: [
-			{
-				type: 'input',
-				name: 'Lokalizacja',
-				value: '', // Miejsce na wpisanie lokalizacji
-			},
-			{
-				type: 'input',
-				name: 'Szerokość korytarza',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'input',
-				name: 'Szerokość <180 cm, co 25 m (wymijanie się wózków)',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Równa nawierzchnia',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Powierzchnia antypoślizgowa',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Wysokość min. 220cm',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Równomiernie oświetlone',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Min. 100 lx',
-				value: '', // Miejsce na wpisanie szerokości
-			},
-			{
-				type: 'choice',
-				name: 'Spełnione',
-				value: '', // Miejsce na wpisanie szerokości
-			},
+			'1. Lokalizacja',
+			'2. Szerokość korytarza',
+			'3. Szerokość <180 cm, co 25 m (wymijanie się wózków)',
+			'4. Równa nawierzchnia',
+			'5. Powierzchnia antypoślizgowa',
+			'6. Wysokość min. 220cm',
+			'7. Równomiernie oświetlone',
+			'8. Min. 100 lx',
+			'9. Spełnione',
 		],
 	},
 ]

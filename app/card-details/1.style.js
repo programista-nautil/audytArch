@@ -58,22 +58,23 @@ const styles = StyleSheet.create({
 	cameraButton: {
 		backgroundColor: 'blue',
 		paddingHorizontal: 20,
-		paddingVertical: 10,
+		paddingVertical: 20,
 		borderRadius: 10,
 		marginBottom: 20,
 		marginTop: 20,
+		alignSelf: 'center',
 	},
 	cameraButtonText: {
-		color: 'white',
+		color: 'black',
 	},
 	cameraControls: {
 		backgroundColor: 'rgba(0, 0, 0, 0.5)',
 		paddingHorizontal: 20,
-		paddingVertical: 10,
+		paddingVertical: 20,
 		borderRadius: 5,
 	},
 	cameraControlsText: {
-		color: 'white',
+		color: 'black',
 	},
 	imagePreviewContainer: {
 		alignItems: 'center',
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 	},
 	stateButton: {
+		flex: 1,
 		width: 50,
 		height: 40,
 		borderRadius: 20,
@@ -120,12 +122,14 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		backgroundColor: COLORS.lightGray,
 		marginRight: 10,
+		padding: 5,
+		marginHorizontal: 5,
 	},
 	stateButtonContainer: {
 		paddingVertical: 30,
 		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'center',
+		justifyContent: 'space-evenly',
 	},
 	fullScreenCameraButtons: {
 		position: 'absolute', // Przyciski powinny być wyświetlane na wierzchu podglądu aparatu
@@ -142,6 +146,19 @@ const styles = StyleSheet.create({
 		alignItems: 'center', // Wyśrodkuj tekst wewnątrz przycisku
 		backgroundColor: '#3897f0', // Ustaw kolor tła przycisku
 		borderRadius: 30, // Zaokrąglij rogi przycisku
+	},
+	commentInput: {
+		backgroundColor: COLORS.lightGray,
+		padding: 10,
+		borderRadius: 10,
+		marginTop: 10,
+		width: '100%', // Zmieniono na 100%
+		borderWidth: 1, // Dodano, aby pole było bardziej widoczne
+		borderColor: '#000',
+	},
+	commentContainer: {
+		width: '100%',
+		marginVertical: 20,
 	},
 })
 
