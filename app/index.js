@@ -1,5 +1,5 @@
-import React from 'react'
-import { SafeAreaView, View, StyleSheet, AppRegistry } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { SafeAreaView, View, StyleSheet, AppRegistry, Text, TouchableOpacity } from 'react-native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { PaperProvider } from 'react-native-paper'
 import { COLORS, SIZES } from '../constants'
@@ -9,13 +9,17 @@ import CameraScreen from '../components/home/camera/CameraScreen' // Załóżmy,
 
 const Stack = createStackNavigator()
 
+
 const HomeScreen = () => {
+
 	return (
 		<PaperProvider>
 			<SafeAreaView style={styles.container}>
+			<View >
+
+			</View>
 				<Welcome />
 				<Popularjobs />
-				{/* <LoginScreen /> */}
 				{/* Inne komponenty, które chcesz umieścić na ekranie głównym */}
 			</SafeAreaView>
 		</PaperProvider>
@@ -35,15 +39,6 @@ const HomeStackNavigator = () => {
 				}}
 			/>
 			<Stack.Screen name='CameraScreen' component={CameraScreen} />
-			{/* <Stack.Screen
-				name='Logowanie'
-				component={LoginScreen}
-				options={{
-					headerStyle: { backgroundColor: COLORS.lightWhite },
-					headerShadowVisible: false,
-					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
-				}}
-			/> */}
 			<Stack.Screen
 				name='Popularjobs'
 				component={Popularjobs}

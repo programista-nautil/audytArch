@@ -31,6 +31,7 @@
         <data android:scheme="my-app"/>
         <data android:scheme="com.daamian.myapp"/>
         <data android:scheme="exp+my-app"/>
+        <data android:scheme="foobar"/>
       </intent-filter>
     </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>

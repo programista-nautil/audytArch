@@ -5,6 +5,7 @@ import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-n
 import { ActivityIndicator } from 'react-native-paper'
 import { FontAwesome5 } from '@expo/vector-icons'
 
+
 const CameraScreen = () => {
 	const device = useCameraDevice('back')
 	const cameraRef = useRef(null)

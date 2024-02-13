@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "21867582822",
+    "project_id": "auditarchitect",
+    "storage_bucket": "auditarchitect.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:21867582822:android:557139e5341dd14c8f64a7",
+        "android_client_info": {
+          "package_name": "com.daamian.myapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "21867582822-l5oup0mp8m0uv4lresr2d2kj5v5beft5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKh3scamN0zCOXu52GJE5PpaCw44KmBMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "21867582822-l5oup0mp8m0uv4lresr2d2kj5v5beft5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

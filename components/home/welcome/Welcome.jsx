@@ -6,16 +6,13 @@ import styles from './welcome.style'
 import { icons, SIZES } from '../../../constants'
 const jobsTypes = []
 
+
+
 const Welcome = () => {
-	const router = useRouter()
-
 	return (
-		<View>
-			<View style={styles.container}>
-				<Text style={styles.welcomeMessage}>Uzupełnij wszystkie dane:</Text>
-			</View>
-
-			<View style={styles.tabsContainer}></View>
+		<View style={styles.container}>
+			<Text style={styles.welcomeMessage}>Uzupełnij wszystkie dane:</Text>
+			
 		</View>
 	)
 }
