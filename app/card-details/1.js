@@ -5,7 +5,6 @@ import styles from './1.style'
 import { COLORS, icons } from '../../constants'
 import CameraAltIcon from '../../assets/icons/camera.png'
 import CameraModule from '../../components/home/camera/CameraModule.js'
-import CameraScreen from '../../components/home/camera/CameraScreen.js' // zaimportuj nowy ekran
 import { elementsData1 } from '../dataElements.js'
 import axios from 'axios'
 import * as ImagePicker from 'expo-image-picker'
@@ -177,7 +176,8 @@ const One = () => {
 				<SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
 					{/* Usuń <Stack.Screen /> i <Link> i zastąp Buttonem */}
 					<Button
-						title='Wróć'
+						title='
+						Aparat'
 						onPress={() => {
 							navigation.navigate('CameraScreen') // Użyj navigation.goBack() do powrotu
 						}}

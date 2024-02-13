@@ -28,7 +28,8 @@
 					"enableMicrophonePermission": true,
 					"microphonePermissionText": "$(PRODUCT_NAME) potrzebne do nagrywania dźwięku."
 				}
-			]
+			],
+			["@react-native-google-signin/google-signin"]
 		],
 		"runtimeVersion": "1.0.0",
 		"updates": {
