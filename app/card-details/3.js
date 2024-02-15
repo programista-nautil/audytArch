@@ -135,7 +135,7 @@ const Three = ({ route }) => {
 				<Button
 					icon='camera'
 					mode='contained'
-					onPress={() => navigation.navigate('CameraScreen', { title: title })}
+					onPress={() => navigation.navigate('CameraScreen', { title: `Strefa Wejścia - ` + comments[0][0] })}
 					style={styles.button}>
 					Aparat
 				</Button>

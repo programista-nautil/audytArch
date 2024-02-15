@@ -1,24 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Switch, Image, TextInput, Alert, StyleSheet } from 'react-native'
-import { useRoute } from '@react-navigation/native'
+import React, { useState } from 'react'
+import { View, Text, ScrollView, Switch, Alert } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import styles from './1.style'
-import { COLORS, icons } from '../../constants'
-import CameraAltIcon from '../../assets/icons/camera.png'
-import CameraModule from '../../components/home/camera/CameraModule.js'
 import { elementsData10 } from '../dataElements.js'
-import axios from 'axios'
-import * as ImagePicker from 'expo-image-picker'
+import { Card, Button, Paragraph, TextInput, ToggleButton } from 'react-native-paper'
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
 
 const elements = elementsData10
+const title = 'Dźwigi osobowe'
 
-const Ten = () => {
-	const route = useRoute()
-	const { title } = route.params
+const Ten = ({ route }) => {
+	const navigation = useNavigation() // Dodaj hook nawigacji
 
 	const [openSections, setOpenSections] = useState({})
 	const [comments, setComments] = useState(Array(elements.length).fill(''))
-	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
-	const [elementName, setElementName] = useState('')
 	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(false))
 	const [comment, setComment] = useState('') // New state variable for comment
 	const [commentIndex, setCommentIndex] = useState(null) // New state variable for comment index
@@ -46,20 +41,6 @@ const Ten = () => {
 		})
 	}
 
-	const handleCameraButtonPress = (index, contentName) => {
-		setElementName(contentName.substring(0, 6))
-		setIsFullScreenCameraVisible(true)
-	}
-
-	const handleCloseCamera = () => {
-		setIsFullScreenCameraVisible(false)
-	}
-
-	const handlePictureTaken = uri => {
-		console.log('Zdjęcie zrobione:', uri)
-		// Logika zapisywania zdjęcia, może wykorzystać funkcję uploadFile
-	}
-
 	const handleSwitchContent = (index, contentIndex, value) => {
 		setSwitchValuesContent(prevState => {
 			const newState = [...prevState]
@@ -69,52 +50,7 @@ const Ten = () => {
 		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
-	//wybór zdjęć z galerii
-	const pickImage = async () => {
-		// Prośba o uprawnienia do dostępu do galerii
-		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync()
-
-		if (permissionResult.granted === false) {
-			alert('Wymagane są uprawnienia do dostępu do zdjęć!')
-			return
-		}
-
-		// Wybór zdjęcia
-		const pickerResult = await ImagePicker.launchImageLibraryAsync()
-		console.log('Wynik wyboru zdjęcia:', pickerResult)
-		if (pickerResult.canceled === true) {
-			return
-		}
-		const selectedImage = pickerResult.assets[0]
-		const imageUri = selectedImage.uri
-		// Możesz teraz użyć pickerResult.uri do wysłania zdjęcia na serwer
-		uploadImageToServer(imageUri)
-	}
-
-	const uploadImageToServer = async imageUri => {
-		const formData = new FormData()
-		formData.append('sampleFile', {
-			uri: imageUri,
-			type: 'image/jpeg', // lub inny typ pliku
-			name: imageUri.split('/').pop(),
-		})
-		console.log('URI wybranego zdjęcia:', imageUri)
-		console.log('Formularz do wysłania:', formData)
-
-		try {
-			const response = await axios.post('https://damian.nautil.info/googleGalleryApi/upload', formData, {
-				headers: {
-					'Content-Type': 'multipart/form-data',
-				},
-			})
-			console.log('Odpowiedź serwera:', response.data)
-		} catch (error) {
-			console.error('Błąd podczas wysyłania zdjęcia:', error)
-			console.log('Pełny obiekt błędu:', error.response)
-		}
-	}
-
-	const handleSubmit = () => {
+	const handleSubmit = async () => {
 		const updatedElements = elements.map((element, index) => {
 			const updatedContent = element.content.map((text, contentIndex) => {
 				const state = switchValuesContent[index][contentIndex]
@@ -148,130 +84,102 @@ const Ten = () => {
 			comment: comment,
 		}
 
-		console.log('Dane do wysłania:', JSON.stringify(data, null, 2))
+		const values = updatedElements.map(element => {
+			// Przygotowanie wiersza do przesłania do arkusza
+			let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
+			element.content.forEach(content => {
+				let contentValue = content.state ? content.state : 'Nie dotyczy'
+				if (content.comment) {
+					contentValue += `, ${content.comment}`
+				}
+				row.push(contentValue)
+			})
+			return row
+		})
 
-		axios
-			.post(
-				'https://script.google.com/macros/s/AKfycbw4w8NIpmIbreIvYhVIM20VVNHaJP3RlJIQHSGIu-fDS4Ib60tRIELpxxHPAxAAXTFhxg/exec',
-				data
+		const accessToken = (await GoogleSignin.getTokens()).accessToken
+		const spreadsheetId = '1ttdyySavO0xv94NQ_7phpT0csOJHY8_9qlJ5fU3noCs' // ID twojego arkusza
+		const range = 'A1' // Zakres, do którego dane mają być dodane
+
+		try {
+			const response = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+				{
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						values: values,
+					}),
+				}
 			)
-			.then(response => {
-				console.log('Odpowiedź:', response.data)
+
+			const result = await response.json()
+			if (response.ok) {
+				console.log('Dane wysłane:', result)
 				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
-			})
-			.catch(error => {
-				console.log('Błąd:', error)
-				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
-			})
+			} else {
+				throw new Error('Błąd podczas wysyłania danych')
+			}
+		} catch (error) {
+			console.error('Błąd:', error)
+			Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
+		}
 	}
 
 	return (
-		<View style={{ flex: 1, backgroundColor: COLORS.lightWhite, marginHorizontal: 10 }}>
-			{!isFullScreenCameraVisible && (
-				<ScrollView style={styles.container}>
-					{elements.map((element, index) => (
-						<TouchableOpacity key={index} onPress={() => handleToggle(index)}>
-							<View
-								style={{
-									flexDirection: 'row',
-									alignItems: 'center',
-								}}>
-								<Text
-									style={{
-										flex: 1,
-										fontSize: 16,
-										color: COLORS.tertiary,
-									}}>
-									{element.name}
-								</Text>
+		<ScrollView style={{}}>
+			<View style={{ marginHorizontal: 10 }}>
+				<Button
+					icon='camera'
+					mode='contained'
+					onPress={() => navigation.navigate('CameraScreen', { title: title })}
+					style={styles.button}>
+					Aparat
+				</Button>
 
-								<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} />
-							</View>
+				{elements.map((element, index) => (
+					<Card key={index} style={styles.card}>
+						<Card.Title title={element.name} />
+						<Card.Content>
+							<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} style={styles.switch} />
 							{openSections[index] && (
-								<View style={{ backgroundColor: COLORS.gray2 }}>
+								<View>
 									{element.content.map((content, contentIndex) => (
-										<View
-											key={contentIndex}
-											style={{
-												backgroundColor: contentIndex % 2 === 1 ? COLORS.lightGray : COLORS.white,
-												alignItems: 'center',
-											}}>
-											<Text style={[styles.tabText, { flex: 1 }]}>{content}</Text>
-											<View style={styles.stateButtonContainer}>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Tak' && { backgroundColor: COLORS.primary },
-													]}
+										<View key={contentIndex} style={styles.contentContainer}>
+											<Paragraph>{content}</Paragraph>
+											<View style={styles.buttonGroup}>
+												<Button
+													mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
 													onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Tak' && { color: COLORS.white },
-														]}>
-														Tak
-													</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={[
-														styles.stateButton,
-														switchValuesContent[index][contentIndex] === 'Nie' && { backgroundColor: COLORS.primary },
-													]}
+													Tak
+												</Button>
+												<Button
+													mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
 													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-													<Text
-														style={[
-															styles.stateButtonText,
-															switchValuesContent[index][contentIndex] === 'Nie' && { color: COLORS.white },
-														]}>
-														Nie
-													</Text>
-												</TouchableOpacity>
+													Nie
+												</Button>
 											</View>
-											<TouchableOpacity
-												onPress={() => handleCameraButtonPress(index, content)}
-												style={{
-													flexDirection: 'row',
-													alignItems: 'center',
-												}}>
-												<Image source={CameraAltIcon} style={styles.cameraAltIcon} />
-											</TouchableOpacity>
-											<View style={styles.commentContainer}>
-												<TextInput
-													style={styles.commentInput}
-													placeholder='Wpisz uwagi'
-													value={comments[index] || ''}
-													onChangeText={text => handleCommentChange(index, contentIndex, text)}
-												/>
-											</View>
+											<TextInput
+												label='Uwagi'
+												style={styles.input}
+												value={comments[index] || ''}
+												onChangeText={text => handleCommentChange(index, contentIndex, text)}
+											/>
 										</View>
 									))}
 								</View>
 							)}
-						</TouchableOpacity>
-					))}
-					<TouchableOpacity onPress={pickImage}>
-						<Text>Wybierz zdjęcie</Text>
-					</TouchableOpacity>
-				</ScrollView>
-			)}
-
-			{isFullScreenCameraVisible && (
-				<View style={StyleSheet.absoluteFill}>
-					<CameraModule
-						onPictureTaken={handlePictureTaken}
-						uploadUrl='https://damian.nautil.info/googleGalleryApi/upload'
-						elementName={elementName}
-						onClose={handleCloseCamera} // Dodaj to
-					/>
-				</View>
-			)}
-
-			{!isFullScreenCameraVisible && (
-				<TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
+						</Card.Content>
+					</Card>
+				))}
+				<Button onPress={handleSubmit} mode='contained'>
 					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
-				</TouchableOpacity>
-			)}
-		</View>
+				</Button>
+			</View>
+		</ScrollView>
 	)
 }
 
