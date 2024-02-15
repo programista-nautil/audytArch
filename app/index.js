@@ -8,10 +8,14 @@ import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, 
 import CameraScreen from '../components/home/camera/CameraScreen' // Załóżmy, że to jest poprawna ścieżka
 
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
+import One from './card-details/1'
 
 const Stack = createStackNavigator()
 
-const HomeScreen = () => {
+const HomeScreen = ({ route }) => {
+	// const { title } = route.params; // Destructuring title from route.params
+	// console.log(title);
+
 	const [error, setError] = useState()
 	const [userInfo, setUserInfo] = useState()
 
@@ -62,31 +66,30 @@ const HomeScreen = () => {
 	)
 }
 
-const HomeStackNavigator = () => {
-	return (
-		<Stack.Navigator>
-			<Stack.Screen
-				name='Audyt Architektoniczny'
-				component={HomeScreen}
-				options={{
-					headerStyle: { backgroundColor: COLORS.lightWhite },
-					headerShadowVisible: false,
-					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
-				}}
-			/>
-			<Stack.Screen name='CameraScreen' component={CameraScreen} />
-			<Stack.Screen
-				name='Popularjobs'
-				component={Popularjobs}
-				options={{
-					title: 'Popular Jobs',
-					// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
-				}}
-			/>
-			{/* Tutaj możesz dodać inne ekrany, które chcesz umieścić w stosie nawigacyjnym */}
-		</Stack.Navigator>
-	)
-}
+const HomeStackNavigator = () => (
+	<Stack.Navigator>
+		<Stack.Screen
+			name='Audyt Architektoniczny'
+			component={HomeScreen}
+			options={{
+				headerStyle: { backgroundColor: COLORS.lightWhite },
+				headerShadowVisible: false,
+				// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
+			}}
+		/>
+		<Stack.Screen name='CameraScreen' component={CameraScreen} />
+		<Stack.Screen name='CardDetails' component={One} />
+		<Stack.Screen
+			name='Popularjobs'
+			component={Popularjobs}
+			options={{
+				title: 'Popular Jobs',
+				// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
+			}}
+		/>
+		{/* Tutaj możesz dodać inne ekrany, które chcesz umieścić w stosie nawigacyjnym */}
+	</Stack.Navigator>
+)
 
 export default HomeStackNavigator
 

@@ -3,13 +3,13 @@ import { View, Text, ScrollView, Switch, Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import styles from './1.style'
 import { elementsData1 } from '../dataElements.js'
-import axios from 'axios'
 import { Card, Button, Paragraph, TextInput, ToggleButton } from 'react-native-paper'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 
 const elements = elementsData1
+const title = 'Otoczenie zewnętrzne'
 
-const One = () => {
+const One = ({ route }) => {
 	const navigation = useNavigation() // Dodaj hook nawigacji
 
 	const [openSections, setOpenSections] = useState({})
@@ -84,21 +84,6 @@ const One = () => {
 			comment: comment,
 		}
 
-		// console.log('Dane do wysłania:', JSON.stringify(data, null, 2))
-
-		// axios
-		// 	.post(
-		// 		'https://script.google.com/macros/s/AKfycbw4w8NIpmIbreIvYhVIM20VVNHaJP3RlJIQHSGIu-fDS4Ib60tRIELpxxHPAxAAXTFhxg/exec',
-		// 		data
-		// 	)
-		// 	.then(response => {
-		// 		console.log('Odpowiedź:', response.data)
-		// 		Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
-		// 	})
-		// 	.catch(error => {
-		// 		console.log('Błąd:', error)
-		// 		Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
-		// 	})
 		const values = updatedElements.map(element => {
 			// Przygotowanie wiersza do przesłania do arkusza
 			let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
@@ -150,7 +135,7 @@ const One = () => {
 				<Button
 					icon='camera'
 					mode='contained'
-					onPress={() => navigation.navigate('CameraScreen')}
+					onPress={() => navigation.navigate('CameraScreen', { title: title })}
 					style={styles.button}>
 					Aparat
 				</Button>

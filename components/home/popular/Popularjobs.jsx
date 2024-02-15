@@ -56,7 +56,7 @@ const Popularjobs = () => {
 		if (id === 0) {
 			handleSubmit(title) // Wywołaj funkcję handleSubmit dla "Nowy budynek"
 		} else {
-			navigation.navigate(`card-details/${id}`, { title }) // Przenoszenie na nowy ekran o nazwie 'CardDetails'
+			navigation.navigate(`card-details/${id}`, { id: id, title: title })
 		}
 	}
 

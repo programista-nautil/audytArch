@@ -7,14 +7,20 @@ import { FontAwesome5 } from '@expo/vector-icons'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
+import { useNavigation } from '@react-navigation/native'
 
-const CameraScreen = () => {
+const CameraScreen = ({ route }) => {
+	const { title } = route.params // Destructuring title from route.params
+	console.log(title) // Logowanie tytułu
 	const device = useCameraDevice('back')
 	const cameraRef = useRef(null)
+
+	const navigation = useNavigation()
 
 	const { hasPermission, requestPermission } = useCameraPermission()
 	const [isActive, setIsActive] = useState(false)
 	const [photo, setPhoto] = useState(null)
+	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
 
 	useFocusEffect(
 		useCallback(() => {
@@ -56,7 +62,7 @@ const CameraScreen = () => {
 				'image/jpeg',
 				{
 					parents: ['1AF-FZqNgiIQAaBecq5Z8WBBp1vO8WkvS'],
-					name: 'Uploaded_Photo.jpg',
+					name: title,
 				},
 				true
 			)
@@ -69,67 +75,14 @@ const CameraScreen = () => {
 		} catch (error) {
 			console.error('Error uploading image to Google Drive: ', error)
 		}
-
-		// try {
-		// 	const userInfo = await GoogleSignin.getCurrentUser()
-		// 	if (!userInfo) {
-		// 		console.log('User not logged in')
-		// 		return
-		// 	}
-
-		// 	const accessToken = (await GoogleSignin.getTokens()).accessToken
-		// 	if (!accessToken) {
-		// 		console.log('Access token is not available')
-		// 		return
-		// 	}
-
-		// 	console.log('User is logged in, accessToken is available')
-
-		// 	// Dodatkowe sprawdzenie uprawnień (opcjonalne)
-		// 	const permissionResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=*', {
-		// 		headers: { Authorization: `Bearer ${accessToken}` },
-		// 	})
-		// 	const permissions = await permissionResponse.json()
-		// 	console.log('Permissions: ', permissions)
-
-		// 	const metadata = {
-		// 		name: 'photo.jpg', // Nazwa pliku
-		// 		mimeType: 'image/jpeg', // Typ MIME pliku
-		// 		// Możesz dodać więcej metadanych, jeśli potrzebujesz
-		// 	}
-
-		// 	const formData = new FormData()
-		// 	formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
-		// 	formData.append('file', {
-		// 		uri: `file://${photo.path}`,
-		// 		type: 'image/jpeg',
-		// 		name: 'photo.jpg',
-		// 	})
-
-		// 	const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-		// 		method: 'POST',
-		// 		headers: {
-		// 			Authorization: `Bearer ${accessToken}`,
-		// 		},
-		// 		body: formData,
-		// 	})
-
-		// 	const result = await response.json()
-		// 	console.log('plik przesłany')
-		// 	return result
-		// } catch (error) {
-		// 	console.error('Error uploading image to Google Drive: ', error)
-		// 	console.log('Detailed error: ', error.message)
-		// 	if (error.response) {
-		// 		console.log('Error status: ', error.response.status)
-		// 		console.log('Error status text: ', error.response.statusText)
-		// 		console.log('Error body: ', await error.response.text())
-		// 	}
-		// }
 	}
 
 	if (!hasPermission) {
 		return <ActivityIndicator size='large' />
+	}
+
+	const handleCloseCamera = () => {
+		setIsFullScreenCameraVisible(false)
 	}
 
 	return (
@@ -148,7 +101,7 @@ const CameraScreen = () => {
 				<View style={{ flex: 1 }}>
 					<Image source={{ uri: `file://${photo.path}` }} style={StyleSheet.absoluteFill} />
 					<FontAwesome5
-						onPress={() => setPhoto(undefined)}
+						onPress={() => setPhoto(null)}
 						name='arrow-left'
 						size={30}
 						color='white'
@@ -157,6 +110,13 @@ const CameraScreen = () => {
 				</View>
 			) : (
 				<>
+					<FontAwesome5
+						onPress={() => navigation.goBack()}
+						name='arrow-left'
+						size={30}
+						color='white'
+						style={{ position: 'absolute', top: 30, left: 30 }}
+					/>
 					<Pressable
 						onPress={onTakePicturePressed}
 						style={{
