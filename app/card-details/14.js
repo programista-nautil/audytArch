@@ -161,6 +161,11 @@ const Fourteen = ({ route }) => {
 													onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
 													Nie
 												</Button>
+												<Button
+													mode={switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'}
+													onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
+													Nie dotyczy
+												</Button>
 											</View>
 											<TextInput
 												label='Uwagi'

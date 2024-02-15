@@ -53,10 +53,12 @@ const HomeScreen = ({ route }) => {
 				{userInfo && <Text>{JSON.stringify(userInfo.user)}</Text>}
 				{userInfo ? (
 					<TouchableOpacity onPress={logOut}>
-						<Text>Log out</Text>
+						<Text>Wyloguj</Text>
 					</TouchableOpacity>
 				) : (
-					<GoogleSigninButton onPress={signIn} />
+					<TouchableOpacity onPress={signIn}>
+						<Text>Zaloguj się</Text>
+					</TouchableOpacity>
 				)}
 				<Welcome />
 				<Popularjobs />
