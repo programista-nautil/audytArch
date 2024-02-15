@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, Switch, Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import styles from './1.style'
-import { COLORS } from '../../constants'
 import { elementsData1 } from '../dataElements.js'
 import axios from 'axios'
 import { Card, Button, Paragraph, TextInput, ToggleButton } from 'react-native-paper'
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
 
 const elements = elementsData1
 
@@ -50,7 +50,7 @@ const One = () => {
 		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
-	const handleSubmit = () => {
+	const handleSubmit = async () => {
 		const updatedElements = elements.map((element, index) => {
 			const updatedContent = element.content.map((text, contentIndex) => {
 				const state = switchValuesContent[index][contentIndex]
@@ -84,21 +84,64 @@ const One = () => {
 			comment: comment,
 		}
 
-		console.log('Dane do wysłania:', JSON.stringify(data, null, 2))
+		// console.log('Dane do wysłania:', JSON.stringify(data, null, 2))
 
-		axios
-			.post(
-				'https://script.google.com/macros/s/AKfycbw4w8NIpmIbreIvYhVIM20VVNHaJP3RlJIQHSGIu-fDS4Ib60tRIELpxxHPAxAAXTFhxg/exec',
-				data
+		// axios
+		// 	.post(
+		// 		'https://script.google.com/macros/s/AKfycbw4w8NIpmIbreIvYhVIM20VVNHaJP3RlJIQHSGIu-fDS4Ib60tRIELpxxHPAxAAXTFhxg/exec',
+		// 		data
+		// 	)
+		// 	.then(response => {
+		// 		console.log('Odpowiedź:', response.data)
+		// 		Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
+		// 	})
+		// 	.catch(error => {
+		// 		console.log('Błąd:', error)
+		// 		Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
+		// 	})
+		const values = updatedElements.map(element => {
+			// Przygotowanie wiersza do przesłania do arkusza
+			let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
+			element.content.forEach(content => {
+				let contentValue = content.state ? content.state : 'Nie dotyczy'
+				if (content.comment) {
+					contentValue += `, ${content.comment}`
+				}
+				row.push(contentValue)
+			})
+			return row
+		})
+
+		const accessToken = (await GoogleSignin.getTokens()).accessToken
+		const spreadsheetId = '1ttdyySavO0xv94NQ_7phpT0csOJHY8_9qlJ5fU3noCs' // ID twojego arkusza
+		const range = 'A1' // Zakres, do którego dane mają być dodane
+
+		try {
+			const response = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+				{
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						values: values,
+					}),
+				}
 			)
-			.then(response => {
-				console.log('Odpowiedź:', response.data)
+
+			const result = await response.json()
+			if (response.ok) {
+				console.log('Dane wysłane:', result)
 				Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
-			})
-			.catch(error => {
-				console.log('Błąd:', error)
-				Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
-			})
+			} else {
+				throw new Error('Błąd podczas wysyłania danych')
+			}
+		} catch (error) {
+			console.error('Błąd:', error)
+			Alert.alert('Błąd', 'Wystąpił problem podczas wysyłania danych.')
+		}
 	}
 
 	return (
