@@ -4,7 +4,9 @@ import { Stack, useFocusEffect } from 'expo-router'
 import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-native-vision-camera'
 import { ActivityIndicator } from 'react-native-paper'
 import { FontAwesome5 } from '@expo/vector-icons'
-
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
+import RNFetchBlob from 'rn-fetch-blob'
+import GDrive from 'react-native-google-drive-api-wrapper'
 
 const CameraScreen = () => {
 	const device = useCameraDevice('back')
@@ -38,14 +40,92 @@ const CameraScreen = () => {
 		}
 	}
 
-	const uploadPhoto = async photo => {
-		if (!photo) {
-			return
-		}
-		const result = await fetch(`file://${photo.path}`)
-		const data = await result.blob()
+	//write function to upload photo to google drive
 
-		console.log(data)
+	const uploadPhoto = async photo => {
+		console.log(photo.path)
+		try {
+			const token = (await GoogleSignin.getTokens()).accessToken
+			GDrive.setAccessToken(token)
+			GDrive.init()
+
+			const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
+			console.log(base64)
+			const result = await GDrive.files.createFileMultipart(
+				base64,
+				'image/jpeg',
+				{
+					parents: ['1AF-FZqNgiIQAaBecq5Z8WBBp1vO8WkvS'],
+					name: 'Uploaded_Photo.jpg',
+				},
+				true
+			)
+
+			if (result.ok) {
+				console.log('Uploaded file with ID: ', result.id)
+			} else {
+				throw new Error('Failed to upload photo')
+			}
+		} catch (error) {
+			console.error('Error uploading image to Google Drive: ', error)
+		}
+
+		// try {
+		// 	const userInfo = await GoogleSignin.getCurrentUser()
+		// 	if (!userInfo) {
+		// 		console.log('User not logged in')
+		// 		return
+		// 	}
+
+		// 	const accessToken = (await GoogleSignin.getTokens()).accessToken
+		// 	if (!accessToken) {
+		// 		console.log('Access token is not available')
+		// 		return
+		// 	}
+
+		// 	console.log('User is logged in, accessToken is available')
+
+		// 	// Dodatkowe sprawdzenie uprawnień (opcjonalne)
+		// 	const permissionResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=*', {
+		// 		headers: { Authorization: `Bearer ${accessToken}` },
+		// 	})
+		// 	const permissions = await permissionResponse.json()
+		// 	console.log('Permissions: ', permissions)
+
+		// 	const metadata = {
+		// 		name: 'photo.jpg', // Nazwa pliku
+		// 		mimeType: 'image/jpeg', // Typ MIME pliku
+		// 		// Możesz dodać więcej metadanych, jeśli potrzebujesz
+		// 	}
+
+		// 	const formData = new FormData()
+		// 	formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+		// 	formData.append('file', {
+		// 		uri: `file://${photo.path}`,
+		// 		type: 'image/jpeg',
+		// 		name: 'photo.jpg',
+		// 	})
+
+		// 	const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+		// 		method: 'POST',
+		// 		headers: {
+		// 			Authorization: `Bearer ${accessToken}`,
+		// 		},
+		// 		body: formData,
+		// 	})
+
+		// 	const result = await response.json()
+		// 	console.log('plik przesłany')
+		// 	return result
+		// } catch (error) {
+		// 	console.error('Error uploading image to Google Drive: ', error)
+		// 	console.log('Detailed error: ', error.message)
+		// 	if (error.response) {
+		// 		console.log('Error status: ', error.response.status)
+		// 		console.log('Error status text: ', error.response.statusText)
+		// 		console.log('Error body: ', await error.response.text())
+		// 	}
+		// }
 	}
 
 	if (!hasPermission) {

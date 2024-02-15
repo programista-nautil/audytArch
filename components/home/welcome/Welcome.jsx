@@ -4,15 +4,13 @@ import { useRouter } from 'expo-router'
 
 import styles from './welcome.style'
 import { icons, SIZES } from '../../../constants'
+import { Button } from 'react-native-paper'
 const jobsTypes = []
-
-
 
 const Welcome = () => {
 	return (
 		<View style={styles.container}>
 			<Text style={styles.welcomeMessage}>Uzupełnij wszystkie dane:</Text>
-			
 		</View>
 	)
 }

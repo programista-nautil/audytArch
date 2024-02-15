@@ -4,7 +4,31 @@ import { FONT, SIZES, COLORS } from '../../constants'
 
 const styles = StyleSheet.create({
 	container: {
-		marginBottom: SIZES.xLarge,
+		flex: 1,
+		padding: 10,
+		backgroundColor: COLORS.lightWhite,
+	},
+	card: {
+		marginBottom: 10,
+		backgroundColor: COLORS.white,
+	},
+	button: {
+		marginVertical: 10,
+	},
+	contentContainer: {
+		marginVertical: 10,
+	},
+	buttonGroup: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginVertical: 10,
+	},
+	switch: {
+		alignSelf: 'flex-end',
+	},
+	input: {
+		marginVertical: 10,
+		backgroundColor: COLORS.lightGray,
 	},
 	header: {
 		flexDirection: 'row',

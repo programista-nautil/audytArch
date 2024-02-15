@@ -7,17 +7,53 @@ import Welcome from '../components/home/welcome/Welcome' // Załóżmy, że to j
 import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, że to jest poprawna ścieżka
 import CameraScreen from '../components/home/camera/CameraScreen' // Załóżmy, że to jest poprawna ścieżka
 
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
+
 const Stack = createStackNavigator()
 
-
 const HomeScreen = () => {
+	const [error, setError] = useState()
+	const [userInfo, setUserInfo] = useState()
 
+	useEffect(() => {
+		GoogleSignin.configure({
+			scopes: ['https://www.googleapis.com/auth/drive'],
+		})
+	}, [])
+
+	const signIn = async () => {
+		try {
+			await GoogleSignin.hasPlayServices()
+			const user = await GoogleSignin.signIn()
+			setUserInfo(user)
+			setError()
+		} catch (error) {
+			setError(error)
+		}
+	}
+
+	const logOut = async () => {
+		try {
+			setUserInfo()
+			await GoogleSignin.revokeAccess()
+			await GoogleSignin.signOut()
+			setError()
+		} catch (error) {
+			setError(error)
+		}
+	}
 	return (
 		<PaperProvider>
 			<SafeAreaView style={styles.container}>
-			<View >
-
-			</View>
+				<Text>{JSON.stringify(error)}</Text>
+				{userInfo && <Text>{JSON.stringify(userInfo.user)}</Text>}
+				{userInfo ? (
+					<TouchableOpacity onPress={logOut}>
+						<Text>Log out</Text>
+					</TouchableOpacity>
+				) : (
+					<GoogleSigninButton onPress={signIn} />
+				)}
 				<Welcome />
 				<Popularjobs />
 				{/* Inne komponenty, które chcesz umieścić na ekranie głównym */}
