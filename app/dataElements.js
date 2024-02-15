@@ -1,7 +1,7 @@
 const elementsData1 = [
 	{
 		name: '1',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'CIĄGI KOMUNIKACYJNE',
@@ -69,7 +69,7 @@ const elementsData1 = [
 const elementsData2 = [
 	{
 		name: '2',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'LOKALIZACJA STANOWISK POSTOJOWYCH',
@@ -96,7 +96,7 @@ const elementsData2 = [
 const elementsData3 = [
 	{
 		name: '3',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'OTOCZENIE STREFY WEJŚCIA',
@@ -137,7 +137,7 @@ const elementsData3 = [
 const elementsData4 = [
 	{
 		name: '4',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'SCHODY ZEWNĘTRZNE',
@@ -183,7 +183,7 @@ const elementsData4 = [
 const elementsData5 = [
 	{
 		name: '5',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'Szerokość , długość i  spoczniki',
@@ -233,7 +233,7 @@ const elementsData5 = [
 const elementsData6 = [
 	{
 		name: '6',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'Domofon',
@@ -258,7 +258,7 @@ const elementsData6 = [
 const elementsData7 = [
 	{
 		name: '7',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'Położenie i wyposażenie',
@@ -295,7 +295,7 @@ const elementsData7 = [
 const elementsData8 = [
 	{
 		name: '8',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'Korytarze',
@@ -316,7 +316,7 @@ const elementsData8 = [
 const elementsData9 = [
 	{
 		name: '9',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'SZEROKOŚĆ BIEGÓW',
@@ -378,7 +378,7 @@ const elementsData9 = [
 const elementsData10 = [
 	{
 		name: '10',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'PRZESTRZEŃ MANEWROWA PRZED DŹWIGIEM OSOBOWYM',
@@ -451,7 +451,7 @@ const elementsData10 = [
 const elementsData11 = [
 	{
 		name: '11',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'POMIESZCZENIA HIGIENICZNO-SANITARNE',
@@ -595,7 +595,7 @@ const elementsData11 = [
 const elementsData12 = [
 	{
 		name: '12',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'POKOJE RODZICA Z DZIECKIEM',
@@ -610,7 +610,7 @@ const elementsData12 = [
 const elementsData13 = [
 	{
 		name: '13',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'STANOWISKO PRACY / POMIESZCZENIE',
@@ -682,7 +682,7 @@ const elementsData13 = [
 const elementsData14 = [
 	{
 		name: '14',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'OZNAKOWANIE PIĘTER',
@@ -731,7 +731,7 @@ const elementsData14 = [
 const elementsData15 = [
 	{
 		name: '15',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'INFORMACJE WIZUALNE',
@@ -761,7 +761,7 @@ const elementsData15 = [
 const elementsData16 = [
 	{
 		name: '16',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'MATERIAŁY WYKOŃCZENIOWE',
@@ -775,7 +775,7 @@ const elementsData16 = [
 const elementsData17 = [
 	{
 		name: '17',
-		content: [],
+		content: ['Lokalizacja'],
 	},
 	{
 		name: 'Dział 1. Dostępność architektoniczna',

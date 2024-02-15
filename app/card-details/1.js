@@ -102,7 +102,7 @@ const One = () => {
 	}
 
 	return (
-		<ScrollView style={{  }}>
+		<ScrollView style={{}}>
 			<View style={{ marginHorizontal: 10 }}>
 				<Button
 					icon='camera'
@@ -135,7 +135,8 @@ const One = () => {
 												</Button>
 											</View>
 											<TextInput
-												label='Uwagi' style={styles.input}
+												label='Uwagi'
+												style={styles.input}
 												value={comments[index] || ''}
 												onChangeText={text => handleCommentChange(index, contentIndex, text)}
 											/>
@@ -146,7 +147,7 @@ const One = () => {
 						</Card.Content>
 					</Card>
 				))}
-				<Button onPress={handleSubmit} mode='contained-tonal'>
+				<Button onPress={handleSubmit} mode='contained'>
 					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
 				</Button>
 			</View>
