@@ -111,7 +111,7 @@ const CameraScreen = ({ route }) => {
 			) : (
 				<>
 					<FontAwesome5
-						onPress={() => navigation.goBack()}
+						onPress={() => setIsActive(false)}
 						name='arrow-left'
 						size={30}
 						color='white'
