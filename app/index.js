@@ -6,22 +6,28 @@ import { COLORS, SIZES } from '../constants'
 import Welcome from '../components/home/welcome/Welcome' // Załóżmy, że to jest poprawna ścieżka
 import Popularjobs from '../components/home/popular/Popularjobs' // Załóżmy, że to jest poprawna ścieżka
 import CameraScreen from '../components/home/camera/CameraScreen' // Załóżmy, że to jest poprawna ścieżka
+import DetailScreen from '../components/home/detailScreen/DetailScreen' // Załóżmy, że to jest poprawna ścieżka
 
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
-import One from './card-details/1'
 
 const Stack = createStackNavigator()
 
-const HomeScreen = ({ route }) => {
-	// const { title } = route.params; // Destructuring title from route.params
-	// console.log(title);
+//remove header
 
+Stack.Navigator.defaultProps = {
+	headerMode: HomeScreen,
+}
+
+const HomeScreen = ({ route }) => {
 	const [error, setError] = useState()
 	const [userInfo, setUserInfo] = useState()
 
 	useEffect(() => {
 		GoogleSignin.configure({
-			scopes: ['https://www.googleapis.com/auth/drive'],
+			scopes: [
+				'https://www.googleapis.com/auth/spreadsheets', // Do pracy z arkuszami
+				'https://www.googleapis.com/auth/drive', // Pełny dostęp do Drive, jeśli potrzebny
+			],
 		})
 	}, [])
 
@@ -80,7 +86,6 @@ const HomeStackNavigator = () => (
 			}}
 		/>
 		<Stack.Screen name='CameraScreen' component={CameraScreen} />
-		<Stack.Screen name='CardDetails' component={One} />
 		<Stack.Screen
 			name='Popularjobs'
 			component={Popularjobs}
@@ -88,6 +93,11 @@ const HomeStackNavigator = () => (
 				title: 'Popular Jobs',
 				// Dodaj tutaj inne opcje dla nagłówka, jeśli potrzebujesz
 			}}
+		/>
+		<Stack.Screen
+			name='DetailScreen'
+			component={DetailScreen}
+			options={({ route }) => ({ title: route.params.title })}
 		/>
 		{/* Tutaj możesz dodać inne ekrany, które chcesz umieścić w stosie nawigacyjnym */}
 	</Stack.Navigator>
