@@ -420,7 +420,10 @@ const DetailScreen = () => {
 			}
 
 			// Start appending data two rows after the last row with data
-			const startRow = lastRowWithData + 3 // Dodajemy 2 puste wiersze plus jeden dla danych
+			const startRow = lastRowWithData + 1 // Wstawiamy bez pustych wierszy
+
+			// Przygotowujemy dane do wstawienia znaku '/'
+			values.unshift(['/']) // Dodajemy wiersz ze znakiem '/' przed nowymi danymi
 			const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A${startRow}:A:append?valueInputOption=USER_ENTERED`
 			const appendResponse = await fetch(appendUrl, {
 				method: 'POST',
