@@ -1,5 +1,6 @@
 {
 	"expo": {
+		"version": "16.0",
 		"scheme": "my-app",
 		"web": {
 			"bundler": "metro"

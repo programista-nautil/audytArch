@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, TextInput, TouchableOpacity, Image, FlatList, StyleSheet, Alert, Linking } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import Constants from 'expo-constants'
 
 import styles from './welcome.style'
 import { icons, SIZES } from '../../../constants'
@@ -79,8 +80,9 @@ const Welcome = () => {
 					{checkTemplateDate()}
 				</>
 			) : (
-				<Text style={styles.text }>Nie wybrano szablonu.</Text>
+				<Text style={styles.text}>Nie wybrano szablonu.</Text>
 			)}
+			<Text style={styles.text}>Wersja aplikacji: {Constants.expoConfig?.version || 'Nieznana wersja'}</Text>
 		</View>
 	)
 }
