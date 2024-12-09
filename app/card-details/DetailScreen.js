@@ -27,6 +27,7 @@ const retrieveData = async () => {
 }
 
 const DetailScreen = () => {
+	const [templateValuesState, setTemplateValuesState] = useState([])
 	const navigation = useNavigation()
 	const isFocused = useIsFocused()
 
@@ -63,14 +64,15 @@ const DetailScreen = () => {
 
 	const SHEET_ID = title
 
+	let fetchedTables = []
+
 	async function fetchDataFromSheet() {
 		const textId = (await retrieveData()).textId
-		//const textId = currentId_textid
-		console.log({ textId })
-		const token = (await GoogleSignin.getTokens()).accessToken // Pobieranie tokenu
+		const token = (await GoogleSignin.getTokens()).accessToken
+
 		try {
 			const response = await fetch(
-				`https://sheets.googleapis.com/v4/spreadsheets/${textId}/values/${encodeURIComponent(SHEET_ID)}!A2:E`, // Zakres do pobrania danych
+				`https://sheets.googleapis.com/v4/spreadsheets/${textId}/values/${encodeURIComponent(SHEET_ID)}!A2:E`,
 				{
 					headers: {
 						Authorization: `Bearer ${token}`,
@@ -78,23 +80,22 @@ const DetailScreen = () => {
 				}
 			)
 
-			const result = await response.json() // Pobieranie odpowiedzi jako JSON
+			const result = await response.json()
 
 			if (result.values && result.values.length > 0) {
-				// Przetwarzanie wierszy danych
 				const data = result.values.map(row => ({
-					name: row[0], // Zakładamy, że kolumna A zawiera 'name'
-					content: row[1] ? row[1].split(';').map(item => item.trim()) : [], // Zakładamy, że kolumna B zawiera 'content' oddzielony średnikami
+					name: row[0], // Tytuł tabeli
+					content: row.slice(1), // Reszta danych w wierszu
 				}))
 
-				return data
+				return data // Zwracamy dane w całości
 			} else {
 				console.log('No data found.')
-				return [] // Zwracanie pustej tablicy, jeśli nie ma danych
+				return []
 			}
 		} catch (error) {
 			console.error('Error fetching data from sheet:', error)
-			return [] // Zwracanie pustej tablicy w przypadku błędu
+			return []
 		}
 	}
 
@@ -124,42 +125,39 @@ const DetailScreen = () => {
 	}
 
 	function mergeTemplateWithData(template, userData) {
-		// Zakładamy, że template to tablica wierszy z Google Sheets
-		// userData to tablica wierszy danych od użytkownika
 		if (!template || !userData) {
-			console.error(`Invalid input: template ${template} or userData ${userData} is undefined`)
-			return [] // Zwróć pustą tablicę lub odpowiednią wartość, która nie spowoduje błędu
+			console.error('Invalid input: template or userData is undefined')
+			return []
 		}
-		let rowIndex = 0 // Zaczynamy od drugiego wiersza w szablonie
+
+		// Zacznij od kopii szablonu, aby uniknąć modyfikacji oryginału
+		const updatedTemplate = [...template]
+
+		let rowIndex = 1 // Zaczynamy od pierwszego wiersza danych (pomijamy nagłówki)
 
 		userData.forEach(data => {
-			const sectionTitle = data[0] // Nazwa sekcji z danych użytkownika
-			const responses = data.slice(1) // Odpowiedzi i komentarze użytkownika
+			const sectionTitle = data[0] // Nazwa sekcji
+			const responses = data.slice(1) // Odpowiedzi użytkownika
 
 			// Sprawdzenie, czy bieżący wiersz to nagłówek sekcji
-			if (template[rowIndex][0].endsWith('-')) {
-				rowIndex++ // Pomijamy wiersz nagłówka
+			while (rowIndex < updatedTemplate.length && updatedTemplate[rowIndex][0].endsWith('-')) {
+				rowIndex++ // Pomijamy nagłówki sekcji
 			}
 
-			responses.forEach(response => {
-				if (rowIndex >= template.length) {
-					return // Zapobiegaj przepełnieniu tablicy
+			responses.forEach((response, colIndex) => {
+				if (rowIndex >= updatedTemplate.length) {
+					return // Unikaj przepełnienia tablicy
 				}
 
 				const splitResponse = response.split(',')
-				template[rowIndex][2] = splitResponse[0].trim() // "Wymagania spełnione"
+				updatedTemplate[rowIndex][2] = splitResponse[0]?.trim() || '' // Wymagania spełnione
+				updatedTemplate[rowIndex][3] = splitResponse[1]?.trim() || '' // Ocena stanu istniejącego
 
-				if (splitResponse.length > 1) {
-					template[rowIndex][3] = splitResponse[1].trim() // "Ocena stanu istniejącego"
-				} else {
-					template[rowIndex][3] = '' // Zapewnienie, że komentarz jest pusty, jeśli nie jest dostarczony
-				}
-
-				rowIndex++ // Przejście do następnego wiersza w szablonie
+				rowIndex++ // Przejdź do następnego wiersza
 			})
 		})
 
-		return template
+		return updatedTemplate
 	}
 
 	// Fetch the template before sending the data
@@ -208,15 +206,115 @@ const DetailScreen = () => {
 		})
 	}, [navigation])
 
-	useEffect(() => {
-		fetchDataFromSheet().then(data => {
-			//fetchTemplate()
-			setElements(data)
+	async function getRowCountEffect(spreadsheetId, sheetName) {
+		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
+		const tokens = await GoogleSignin.getTokens()
+		const accessToken = tokens.accessToken
 
-			setComments(data.map(() => ''))
-			setSwitchValues(data.map(() => false))
-			setSwitchValuesContent(data.map(() => Array(3).fill(false)))
-		})
+		try {
+			const response = await fetch(url, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+			const result = await response.json()
+
+			if (response.ok) {
+				const totalRows = result.values ? result.values.length : 0
+
+				if (!result.values) {
+					return 0 // Brak danych w kolumnie
+				}
+
+				// Szukamy pierwszego pustego wiersza
+				for (let i = 0; i < result.values.length; i++) {
+					if (result.values[i].length === 0 || result.values[i][0] === '' || result.values[i][0] == null) {
+						return i // Zwracamy liczbę wierszy do pierwszego pustego
+					}
+				}
+
+				return totalRows // Jeśli nie ma pustego wiersza, zwracamy całkowitą liczbę wierszy
+			} else {
+				console.error('API Error:', result.error)
+				return 0
+			}
+		} catch (error) {
+			console.error('Error fetching row count:', error)
+			return 0
+		}
+	}
+
+	const getSheetMetadataEffect = async () => {
+		const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
+		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
+		const tokens = await GoogleSignin.getTokens()
+		const accessToken = tokens.accessToken
+
+		try {
+			const response = await fetch(url, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+
+			if (!response.ok) {
+				console.error('HTTP Error:', response.status, await response.text())
+				throw new Error('Failed to fetch sheet metadata.')
+			}
+
+			const data = await response.json()
+
+			// Processing response to find the sheetId
+			const sheets = data.sheets
+			if (!sheets || sheets.length === 0) {
+				console.error('No sheets found in the received data.')
+				return null
+			}
+
+			const targetSheet = sheets.find(sheet => sheet.properties.title === title)
+			if (!targetSheet) {
+				console.error(`Sheet titled ${title}  not found.`)
+				return null
+			}
+
+			const sheetId = targetSheet.properties.sheetId
+			const sheetName = targetSheet.properties.title
+			return { sheetId, sheetName, spreadsheetId }
+		} catch (error) {
+			console.error('Error fetching sheet metadata:', error)
+			return null
+		}
+	}
+
+	useEffect(() => {
+		const fetchData = async () => {
+			try {
+				const tokens = await GoogleSignin.getTokens()
+				const accessToken = tokens.accessToken
+
+				const data = await fetchDataFromSheet()
+
+				const sheetMetadata = await getSheetMetadataEffect(accessToken)
+
+				const sheetName = sheetMetadata.sheetName
+				const spreadsheetId = sheetMetadata.spreadsheetId
+
+				const rowCount = await getRowCountEffect(spreadsheetId, sheetName, accessToken)
+
+				const templateValues = await fetchTemplate(rowCount)
+				console.log('Pobrane wartości szablonu:', templateValues)
+
+				setTemplateValuesState(templateValues)
+				setElements(data)
+				setComments(data.map(() => ''))
+				setSwitchValues(data.map(() => false))
+				setSwitchValuesContent(data.map(() => Array(3).fill(false)))
+			} catch (error) {
+				console.error('Błąd podczas pobierania danych:', error)
+			}
+		}
+
+		fetchData()
 	}, [])
 
 	const handleToggle = index => {
@@ -244,6 +342,127 @@ const DetailScreen = () => {
 			return newState
 		})
 		setCommentIndex(contentIndex) // Store the current content index for comments
+	}
+
+	async function checkAndRemoveExcessRecords(
+		spreadsheetId,
+		sheetName,
+		accessToken,
+		rowCountBeforeAdding,
+		templateRowCount
+	) {
+		try {
+			const getSheetDataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:Z`
+
+			// Pobierz wszystkie dane z arkusza
+			const response = await fetch(getSheetDataUrl, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+
+			const result = await response.json()
+			const sheetData = result.values
+
+			if (!response.ok || !sheetData) {
+				console.error('Błąd podczas pobierania danych z arkusza:', result.error)
+				return
+			}
+
+			const currentRowCount = sheetData.length // Liczba wierszy w arkuszu po dodaniu
+			console.log(`Obecna liczba wierszy: ${currentRowCount}`)
+
+			// Poprawna liczba wierszy: wiersze przed dodaniem + długość szablonu + wiersz "\"
+			const validRowCount = rowCountBeforeAdding + templateRowCount + 1
+			console.log(`Poprawna liczba wierszy: ${validRowCount}`)
+
+			// Sprawdzenie, czy jest więcej wierszy niż poprawna liczba
+			if (currentRowCount > validRowCount) {
+				console.log(`Nadmiarowe rekordy: ${currentRowCount - validRowCount}`)
+				const deleteRequests = {
+					requests: [
+						{
+							deleteDimension: {
+								range: {
+									sheetId: await getSheetId(spreadsheetId, sheetName, accessToken),
+									dimension: 'ROWS',
+									startIndex: validRowCount, // Usuń wiersze zaczynające się od indeksu poprawnej liczby
+									endIndex: currentRowCount, // Usuń aż do końca
+								},
+							},
+						},
+					],
+				}
+
+				const batchUpdateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`
+
+				const deleteResponse = await fetch(batchUpdateUrl, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(deleteRequests),
+				})
+
+				if (!deleteResponse.ok) {
+					console.error('Błąd podczas usuwania nadmiarowych rekordów:', await deleteResponse.text())
+				} else {
+					console.log('Nadmiarowe rekordy zostały usunięte.')
+				}
+			} else {
+				console.log('Liczba rekordów jest zgodna z szablonem.')
+			}
+		} catch (error) {
+			console.error('Błąd podczas sprawdzania nadmiarowych rekordów:', error)
+		}
+	}
+
+	// Pomocnicza funkcja: Pobierz ID arkusza (sheetId)
+	async function getSheetId(spreadsheetId, sheetName, accessToken) {
+		const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
+
+		try {
+			const response = await fetch(metadataUrl, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+
+			const metadata = await response.json()
+			if (!response.ok || !metadata.sheets) {
+				throw new Error('Nie udało się pobrać metadanych arkusza.')
+			}
+
+			const sheet = metadata.sheets.find(sheet => sheet.properties.title === sheetName)
+			return sheet.properties.sheetId
+		} catch (error) {
+			console.error('Błąd podczas pobierania ID arkusza:', error)
+			throw error
+		}
+	}
+
+	async function getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken) {
+		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
+
+		try {
+			const response = await fetch(url, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+			const result = await response.json()
+
+			if (response.ok) {
+				return result.values ? result.values.length : 0
+			} else {
+				console.error('Błąd podczas pobierania liczby wierszy:', result.error)
+				return 0
+			}
+		} catch (error) {
+			console.error('Błąd podczas pobierania liczby wierszy:', error)
+			return 0
+		}
 	}
 
 	const handleSubmit = async () => {
@@ -380,15 +599,26 @@ const DetailScreen = () => {
 		const startRow = rowCount.lastRowWithData + 1 // The row after the last one with data
 		const range = `A${startRow}`
 
-		const templateValues = await fetchTemplate(rowCount)
+		//const templateValues = await fetchTemplate(rowCount)
 
-		const updatedTemplate = mergeTemplateWithData(templateValues, values)
+		const updatedTemplate = mergeTemplateWithData(templateValuesState, values)
+
+		console.log(templateValuesState.length)
+
+		const rowCountBeforeAdding = await getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken)
+
+		//const templateRowCount = templateValues.length
+
+		console.log('Szablon danych:', templateValuesState)
+		console.log('Dane użytkownika:', values)
 
 		// Append new data
-		await appendData(spreadsheetId, sheetName, updatedTemplate, accessToken, rowCount)
+		await appendData(spreadsheetId, sheetName, updatedTemplate, accessToken)
 
 		// Adjust and execute the copy of styles
 		await copyStylesAndData(spreadsheetId, sheetId, rowCount, accessToken, sheetName)
+
+		//await checkAndRemoveExcessRecords(spreadsheetId, sheetName, accessToken, rowCountBeforeAdding, templateRowCount)
 	}
 
 	async function appendData(spreadsheetId, sheetName, values, accessToken) {

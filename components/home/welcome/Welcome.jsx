@@ -82,7 +82,8 @@ const Welcome = () => {
 			) : (
 				<Text style={styles.text}>Nie wybrano szablonu.</Text>
 			)}
-			<Text style={styles.text}>Wersja aplikacji: {Constants.expoConfig?.version || 'Nieznana wersja'}</Text>
+			{/* <Text style={styles.text}>Wersja aplikacji: {Constants.expoConfig?.version || 'Nieznana wersja'}</Text> */}
+			<Text style={styles.text}>Wersja aplikacji: 16.1</Text>
 		</View>
 	)
 }
