@@ -59,14 +59,21 @@ const Popularjobs = () => {
 		{ id: 9, title: 'KWESTIONARIUSZ GUS', icon: require('../../../assets/images/information.jpg') },
 	]
 
+	const data_knn = [
+		{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') },
+		{ id: 1, title: '1.WERYFIKACJA OGÓLNA', icon: require('../../../assets/images/zew.png') },
+		{ id: 2, title: '2.WYNIK WERYFIKACJI', icon: require('../../../assets/images/parking.jpg') },
+	]
+
 	useEffect(() => {
 		const fetchId = async () => {
 			const id_storage = await retrieveId()
 			if (id_storage) {
 				setCurrentId(id_storage)
 				console.log('Current ID:', id_storage)
-
-				if (id_storage === '2') {
+				if (id_storage === '4') {
+					setData(data_knn)
+				} else if (id_storage === '2') {
 					setData(data_klatki)
 				} else {
 					setData(data_default)

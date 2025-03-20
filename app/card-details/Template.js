@@ -24,6 +24,12 @@ const templates = [
 		fileId: '1ttdyySavO0xv94NQ_7phpT0csOJHY8_9qlJ5fU3noCs',
 		text_id: '1un6di9qcq4wN4DL_bHfmgdYZddbVAl4atGc6_KX4-bI',
 	},
+	{
+		id: '4',
+		name: 'Knn',
+		fileId: '1zUA4ynCygVzB6g-VKffDyyHUKTesuaHEDuNDVvlj7w0',
+		text_id: '1FLeRAc3wsKJinE86nitw1SMpU643jN_RScEE0KGCNq8',
+	},
 ]
 
 const storeData = async (photosFolderId, copiedTemplateId, textId, id, navigation) => {
