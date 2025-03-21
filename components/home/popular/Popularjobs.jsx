@@ -63,6 +63,11 @@ const Popularjobs = () => {
 		{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') },
 		{ id: 1, title: '1.WERYFIKACJA OGÓLNA', icon: require('../../../assets/images/zew.png') },
 		{ id: 2, title: '2.WYNIK WERYFIKACJI', icon: require('../../../assets/images/parking.jpg') },
+		{ id: 3, title: '3.POTWIERDZENIE', icon: require('../../../assets/images/strefaWej.jpg') },
+		{ id: 4, title: '4.STREFA WEJŚCIA', icon: require('../../../assets/images/outdoor_stairs.jpg') },
+		{ id: 5, title: '5.ORIENTACJA W BUDYNKU I PRZEKAZ INFORMACJI', icon: require('../../../assets/images/ramp.jpg') },
+		{ id: 6, title: '6.KOMUNIKACJA POZIOMA', icon: require('../../../assets/images/domofon.jpg') },
+		{ id: 7, title: '7.KOMUNIKACJA PIONOWA', icon: require('../../../assets/images/stairs.jpg') },
 	]
 
 	useEffect(() => {
