@@ -473,7 +473,18 @@ const DetailScreen = () => {
 				const state = switchValuesContent[index][contentIndex]
 				let updatedText = text
 
-				if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
+				if (
+					[
+						'Tak',
+						'Nie',
+						'Nie dotyczy',
+						'Częściowo spełnione',
+						'Nie - szybkie usprawnienia',
+						'Nie - dostosowania do uwzględnienia w projektach',
+						'Nie - bariera nieusuwalna',
+						'',
+					].includes(state)
+				) {
 					const lowercaseState = state.toLowerCase()
 					const pattern = new RegExp(`\\b${state}\\b`, 'gi')
 					updatedText = updatedText.replace(pattern, lowercaseState)
@@ -886,20 +897,74 @@ const DetailScreen = () => {
 											<View key={contentIndex} style={styles.contentContainer}>
 												<Paragraph>{content}</Paragraph>
 												<View style={styles.buttonGroup}>
+													{/* Pierwsza linia przycisków (2 przyciski) */}
+													<View style={styles.topRow}>
+														<Button
+															mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
+															onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
+															Tak
+														</Button>
+														<Button
+															mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
+															onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
+															Nie
+														</Button>
+														<Button
+															mode={
+																switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'
+															}
+															onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
+															Nie dotyczy
+														</Button>
+													</View>
+
 													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-														Tak
+														mode={
+															switchValuesContent[index][contentIndex] === 'Częściowo spełnione'
+																? 'contained'
+																: 'outlined'
+														}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Częściowo spełnione')}>
+														Częściowo spełnione
 													</Button>
+
+													{/* Dwie ostatnie linie przycisków (po jednym w każdej) */}
 													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-														Nie
+														mode={
+															switchValuesContent[index][contentIndex] === 'Nie - szybkie usprawnienia'
+																? 'contained'
+																: 'outlined'
+														}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Nie - szybkie usprawnienia')}>
+														Nie - szybkie usprawnienia
 													</Button>
+
 													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
-														Nie dotyczy
+														mode={
+															switchValuesContent[index][contentIndex] === 'Nie - bariera nieusuwalna'
+																? 'contained'
+																: 'outlined'
+														}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Nie - bariera nieusuwalna')}>
+														Nie - bariera nieusuwalna
+													</Button>
+
+													{/* Najdłuższy przycisk na dole */}
+													<Button
+														mode={
+															switchValuesContent[index][contentIndex] ===
+															'Nie - dostosowania do uwzględnienia w projektach'
+																? 'contained'
+																: 'outlined'
+														}
+														onPress={() =>
+															handleSwitchContent(
+																index,
+																contentIndex,
+																'Nie - dostosowania do uwzględnienia w projektach'
+															)
+														}>
+														Nie - dostosowania do uwzględnienia w projektach
 													</Button>
 												</View>
 												<TextInput
