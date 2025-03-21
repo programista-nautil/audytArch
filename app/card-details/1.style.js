@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native'
 
 import { FONT, SIZES, COLORS } from '../../constants'
+import { getApp } from 'firebase/app'
 
 const styles = StyleSheet.create({
 	container: {
@@ -19,9 +20,14 @@ const styles = StyleSheet.create({
 		marginVertical: 10,
 	},
 	buttonGroup: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
+		flexDirection: 'column', // Cały kontener w układzie kolumnowym
 		marginVertical: 10,
+	},
+
+	topRow: {
+		flexDirection: 'row', // Wiersz dla pierwszych dwóch przycisków
+		width: '100%', // Cała szerokość dostępna
+		marginBottom: 10,
 	},
 	switch: {
 		alignSelf: 'flex-end',
