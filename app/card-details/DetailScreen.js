@@ -135,7 +135,10 @@ const DetailScreen = () => {
 
 		let rowIndex = 1 // Zaczynamy od pierwszego wiersza danych (pomijamy nagłówki)
 
-		userData.forEach(data => {
+		userData.forEach((data, index) => {
+			if (index === 0 && data.length > 2) {
+				data.splice(2, 1) // usuwa trzeci element (czyli drugą odpowiedź)
+			}
 			const sectionTitle = data[0] // Nazwa sekcji
 			const responses = data.slice(1) // Odpowiedzi użytkownika
 
@@ -473,18 +476,7 @@ const DetailScreen = () => {
 				const state = switchValuesContent[index][contentIndex]
 				let updatedText = text
 
-				if (
-					[
-						'Tak',
-						'Nie',
-						'Nie dotyczy',
-						'Częściowo spełnione',
-						'Nie - szybkie usprawnienia',
-						'Nie - dostosowania do uwzględnienia w projektach',
-						'Nie - bariera nieusuwalna',
-						'',
-					].includes(state)
-				) {
+				if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
 					const lowercaseState = state.toLowerCase()
 					const pattern = new RegExp(`\\b${state}\\b`, 'gi')
 					updatedText = updatedText.replace(pattern, lowercaseState)
@@ -662,7 +654,9 @@ const DetailScreen = () => {
 
 			// Start appending data two rows after the last row with data
 			const startRow = lastRowWithData + 1 // Wstawiamy bez pustych wierszy
-
+			if (values.length > 0 && values[0].length > 2) {
+				values[0].splice(2, 1) // usuwa trzeci element (czyli drugą odpowiedź)
+			}
 			// Przygotowujemy dane do wstawienia znaku '/'
 			values.unshift(['/']) // Dodajemy wiersz ze znakiem '/' przed nowymi danymi
 			const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A${startRow}:A:append?valueInputOption=USER_ENTERED`
@@ -897,74 +891,20 @@ const DetailScreen = () => {
 											<View key={contentIndex} style={styles.contentContainer}>
 												<Paragraph>{content}</Paragraph>
 												<View style={styles.buttonGroup}>
-													{/* Pierwsza linia przycisków (2 przyciski) */}
-													<View style={styles.topRow}>
-														<Button
-															mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
-															onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-															Tak
-														</Button>
-														<Button
-															mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
-															onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-															Nie
-														</Button>
-														<Button
-															mode={
-																switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'
-															}
-															onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
-															Nie dotyczy
-														</Button>
-													</View>
-
 													<Button
-														mode={
-															switchValuesContent[index][contentIndex] === 'Częściowo spełnione'
-																? 'contained'
-																: 'outlined'
-														}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Częściowo spełnione')}>
-														Częściowo spełnione
+														mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
+														Tak
 													</Button>
-
-													{/* Dwie ostatnie linie przycisków (po jednym w każdej) */}
 													<Button
-														mode={
-															switchValuesContent[index][contentIndex] === 'Nie - szybkie usprawnienia'
-																? 'contained'
-																: 'outlined'
-														}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie - szybkie usprawnienia')}>
-														Nie - szybkie usprawnienia
+														mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
+														Nie
 													</Button>
-
 													<Button
-														mode={
-															switchValuesContent[index][contentIndex] === 'Nie - bariera nieusuwalna'
-																? 'contained'
-																: 'outlined'
-														}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie - bariera nieusuwalna')}>
-														Nie - bariera nieusuwalna
-													</Button>
-
-													{/* Najdłuższy przycisk na dole */}
-													<Button
-														mode={
-															switchValuesContent[index][contentIndex] ===
-															'Nie - dostosowania do uwzględnienia w projektach'
-																? 'contained'
-																: 'outlined'
-														}
-														onPress={() =>
-															handleSwitchContent(
-																index,
-																contentIndex,
-																'Nie - dostosowania do uwzględnienia w projektach'
-															)
-														}>
-														Nie - dostosowania do uwzględnienia w projektach
+														mode={switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'}
+														onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
+														Nie dotyczy
 													</Button>
 												</View>
 												<TextInput

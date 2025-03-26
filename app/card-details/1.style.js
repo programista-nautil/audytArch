@@ -20,14 +20,9 @@ const styles = StyleSheet.create({
 		marginVertical: 10,
 	},
 	buttonGroup: {
-		flexDirection: 'column', // Cały kontener w układzie kolumnowym
+		flexDirection: 'row',
+		justifyContent: 'space-between',
 		marginVertical: 10,
-	},
-
-	topRow: {
-		flexDirection: 'row', // Wiersz dla pierwszych dwóch przycisków
-		width: '100%', // Cała szerokość dostępna
-		marginBottom: 10,
 	},
 	switch: {
 		alignSelf: 'flex-end',
