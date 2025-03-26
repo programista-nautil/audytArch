@@ -85,7 +85,7 @@ const DetailScreen = () => {
 			if (result.values && result.values.length > 0) {
 				const data = result.values.map(row => ({
 					name: row[0], // Tytuł tabeli
-					content: row.slice(1), // Reszta danych w wierszu
+					content: row[1] ? row[1].split(';').map(item => item.trim()) : [], // Reszta danych w wierszu
 				}))
 
 				return data // Zwracamy dane w całości
