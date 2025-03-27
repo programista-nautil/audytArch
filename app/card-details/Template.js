@@ -26,7 +26,7 @@ const templates = [
 	},
 	{
 		id: '4',
-		name: 'Knn',
+		name: 'Spójność',
 		fileId: '1zUA4ynCygVzB6g-VKffDyyHUKTesuaHEDuNDVvlj7w0',
 		text_id: '1FLeRAc3wsKJinE86nitw1SMpU643jN_RScEE0KGCNq8',
 	},
