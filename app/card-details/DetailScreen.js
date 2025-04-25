@@ -175,6 +175,7 @@ const DetailScreen = () => {
 			.map(_ => Array(3).fill(false))
 	)
 	const [openSections, setOpenSections] = useState({})
+	const [uploadStatuses, setUploadStatuses] = useState(Array(elements.length).fill(null))
 
 	useEffect(() => {
 		navigation.setOptions({
@@ -829,6 +830,7 @@ const DetailScreen = () => {
 	const [photo, setPhoto] = useState(null)
 	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
 	const [selectedElementName, setSelectedElementName] = useState('')
+	const [selectedElementIndex, setSelectedElementIndex] = useState(null)
 	const [SelectedLocalization, setSelectedLocalization] = useState('')
 
 	const device = useCameraDevice('back')
@@ -838,18 +840,18 @@ const DetailScreen = () => {
 		requestPermission()
 	}, [hasPermission])
 
-	const onTakePicturePressed = async name => {
+	const onTakePicturePressed = async (name, index) => {
 		if (cameraRef.current) {
 			const photo = await cameraRef.current.takePhoto()
 			// Zrób coś z obiektem photo, na przykład zapisz go lub wyświetl
-			uploadPhoto(photo, name)
+			uploadPhoto(photo, name, index)
 			setPhoto(photo)
 		}
 	}
 
 	//write function to upload photo to google drive
 
-	const uploadPhoto = async (photo, name) => {
+	const uploadPhoto = async (photo, name, index) => {
 		try {
 			const token = (await GoogleSignin.getTokens()).accessToken
 			GDrive.setAccessToken(token)
@@ -867,13 +869,23 @@ const DetailScreen = () => {
 			)
 
 			if (result.ok) {
+				updateUploadStatus(index, 'success')
 				setIsActive(false)
 			} else {
 				throw new Error('Failed to upload photo')
 			}
 		} catch (error) {
 			console.error('Error uploading image to Google Drive: ', error)
+			setUploadStatus('error')
 		}
+	}
+
+	const updateUploadStatus = (index, status) => {
+		setUploadStatuses(prev => {
+			const updated = [...prev]
+			updated[index] = status
+			return updated
+		})
 	}
 
 	return (
@@ -919,14 +931,21 @@ const DetailScreen = () => {
 											icon='camera'
 											mode='contained'
 											onPress={() => {
-												let com = comments[0][0] === undefined ? '' : comments[0][0]
+												let com = comments[0] && comments[0][0] ? comments[0][0] : ''
 
 												setSelectedElementName(element.name + com)
+												setSelectedElementIndex(index)
 												setIsActive(true)
 											}}
 											style={styles.button}>
 											Otwórz aparat
 										</Button>
+										{uploadStatuses[index] === 'success' && (
+											<Text style={{ color: 'green', marginTop: 4 }}>Zdjęcie zostało wysłane</Text>
+										)}
+										{uploadStatuses[index] === 'error' && (
+											<Text style={{ color: 'red', marginTop: 4 }}>Wysłanie zdjęcia nie powiodło się</Text>
+										)}
 									</View>
 								)}
 							</Card.Content>
@@ -977,7 +996,8 @@ const DetailScreen = () => {
 					<Pressable
 						onPress={() => {
 							// Ustawienie stanu na false
-							onTakePicturePressed(selectedElementName) // Wywołanie funkcji z wybraną nazwą
+							onTakePicturePressed(selectedElementName, selectedElementIndex)
+							// Wywołanie funkcji z wybraną nazwą
 						}}
 						style={{
 							position: 'absolute',
