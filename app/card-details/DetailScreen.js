@@ -9,6 +9,7 @@ import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-n
 import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Network from 'expo-network'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -873,6 +874,11 @@ const DetailScreen = () => {
 		}
 	}
 
+	const checkInternet = async () => {
+		const state = await Network.getNetworkStateAsync()
+		return state.isConnected && state.isInternetReachable !== false
+	}
+
 	//write function to upload photo to google drive
 
 	const uploadPhoto = async (photo, name, index) => {
@@ -900,7 +906,7 @@ const DetailScreen = () => {
 			}
 		} catch (error) {
 			console.error('Error uploading image to Google Drive: ', error)
-			setUploadStatus('error')
+			updateUploadStatus(index, 'error')
 		}
 	}
 
