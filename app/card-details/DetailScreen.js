@@ -873,7 +873,7 @@ const DetailScreen = () => {
 			setPhoto(photo)
 		}
 	}
-
+	const network = useNetworkState()
 	const checkInternet = async () => {
 		const state = await Network.getNetworkStateAsync()
 		return state.isConnected && state.isInternetReachable !== false
@@ -882,31 +882,44 @@ const DetailScreen = () => {
 	//write function to upload photo to google drive
 
 	const uploadPhoto = async (photo, name, index) => {
-		try {
-			const token = (await GoogleSignin.getTokens()).accessToken
-			GDrive.setAccessToken(token)
-			GDrive.init()
+		const isOnline = await checkInternet()
 
-			const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
-			const result = await GDrive.files.createFileMultipart(
-				base64,
-				'image/jpeg',
-				{
-					parents: [await AsyncStorage.getItem('@PhotosFolderId')],
-					name: name,
-				},
-				true
-			)
+		if (isOnline) {
+			try {
+				const token = (await GoogleSignin.getTokens()).accessToken
+				GDrive.setAccessToken(token)
+				GDrive.init()
 
-			if (result.ok) {
-				updateUploadStatus(index, 'success')
+				const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
+				const result = await GDrive.files.createFileMultipart(
+					base64,
+					'image/jpeg',
+					{
+						parents: [await AsyncStorage.getItem('@PhotosFolderId')],
+						name: name,
+					},
+					true
+				)
+
+				if (result.ok) {
+					updateUploadStatus(index, 'success')
+					setIsActive(false)
+				} else {
+					throw new Error('Failed to upload photo')
+				}
+			} catch (error) {
+				console.error('Error uploading image to Google Drive: ', error)
+				updateUploadStatus(index, 'error')
 				setIsActive(false)
-			} else {
-				throw new Error('Failed to upload photo')
 			}
-		} catch (error) {
-			console.error('Error uploading image to Google Drive: ', error)
-			updateUploadStatus(index, 'error')
+		} else {
+			console.log('Brak internetu – zapisuję do kolejki')
+
+			const pendingPhotos = JSON.parse(await AsyncStorage.getItem('pendingPhotos')) || []
+			pendingPhotos.push({ path: photo.path, name })
+			await AsyncStorage.setItem('pendingPhotos', JSON.stringify(pendingPhotos))
+			updateUploadStatus(index, 'offline')
+			setIsActive(false)
 		}
 	}
 
@@ -917,6 +930,42 @@ const DetailScreen = () => {
 			return updated
 		})
 	}
+
+	useEffect(() => {
+		if (network.isConnected && network.isInternetReachable) {
+			const syncPhotos = async () => {
+				const pendingPhotos = JSON.parse(await AsyncStorage.getItem('pendingPhotos')) || []
+
+				if (pendingPhotos.length > 0) {
+					console.log(`Synchronizuję ${pendingPhotos.length} zdjęć z kolejki`)
+
+					for (const item of pendingPhotos) {
+						try {
+							const token = (await GoogleSignin.getTokens()).accessToken
+							GDrive.setAccessToken(token)
+							GDrive.init()
+
+							const base64 = await RNFetchBlob.fs.readFile(`file://${item.path}`, 'base64')
+							await GDrive.files.createFileMultipart(
+								base64,
+								'image/jpeg',
+								{
+									parents: [await AsyncStorage.getItem('@PhotosFolderId')],
+									name: item.name,
+								},
+								true
+							)
+						} catch (err) {
+							console.error('Błąd synchronizacji zdjęcia z kolejki:', err)
+						}
+					}
+					await AsyncStorage.removeItem('pendingPhotos')
+				}
+			}
+
+			syncPhotos()
+		}
+	}, [network.isConnected, network.isInternetReachable])
 
 	return (
 		<View style={{ flex: 1 }}>
@@ -975,6 +1024,9 @@ const DetailScreen = () => {
 										)}
 										{uploadStatuses[index] === 'error' && (
 											<Text style={{ color: 'red', marginTop: 4 }}>Wysłanie zdjęcia nie powiodło się</Text>
+										)}
+										{uploadStatuses[index] === 'offline' && (
+											<Text style={{ color: 'orange', marginTop: 4 }}>Zdjęcie zapisano offline</Text>
 										)}
 									</View>
 								)}
