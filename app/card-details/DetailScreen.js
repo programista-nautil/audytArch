@@ -210,6 +210,30 @@ const DetailScreen = () => {
 		})
 	}, [navigation])
 
+	useEffect(() => {
+		const backAction = () => {
+			Alert.alert(
+				'Potwierdzenie wyjścia',
+				'Czy na pewno chcesz wrócić do menu głównego? Stracisz wszystkie zaznaczone opcje i przyciski.',
+				[
+					{
+						text: 'Nie',
+						style: 'cancel',
+					},
+					{
+						text: 'Tak',
+						onPress: () => navigation.goBack(), // jak przy kliknięciu ikony
+					},
+				]
+			)
+			return true // Zatrzymujemy domyślne cofanie
+		}
+
+		const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction)
+
+		return () => backHandler.remove()
+	}, [navigation])
+
 	async function getRowCountEffect(spreadsheetId, sheetName) {
 		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
 		const tokens = await GoogleSignin.getTokens()
