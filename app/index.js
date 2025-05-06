@@ -12,12 +12,6 @@ import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/go
 
 const Stack = createStackNavigator()
 
-//remove header
-
-Stack.Navigator.defaultProps = {
-	headerMode: HomeScreen,
-}
-
 const HomeScreen = ({ route }) => {
 	const [error, setError] = useState()
 	const [userInfo, setUserInfo] = useState()
@@ -74,7 +68,7 @@ const HomeScreen = ({ route }) => {
 	)
 }
 
-const HomeStackNavigator = () => (
+const HomeStackNavigator = ({ headerMode = HomeScreen }) => (
 	<Stack.Navigator>
 		<Stack.Screen
 			name='Audyt Architektoniczny'
