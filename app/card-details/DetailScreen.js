@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { ScrollView, Text, View, Switch, Alert, StyleSheet, Pressable, Image, BackHandler } from 'react-native'
+import {
+	ScrollView,
+	Text,
+	View,
+	Switch,
+	Alert,
+	StyleSheet,
+	Pressable,
+	Image,
+	BackHandler,
+	ActivityIndicator,
+} from 'react-native'
 import { useNavigation, useRoute, useIsFocused, useFocusEffect } from '@react-navigation/native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import styles from './1.style'
@@ -31,6 +42,7 @@ const DetailScreen = () => {
 	const navigation = useNavigation()
 	const isFocused = useIsFocused()
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [isTakingPhoto, setIsTakingPhoto] = useState(false)
 
 	const route = useRoute()
 	const { id, title } = route.params
@@ -899,7 +911,7 @@ const DetailScreen = () => {
 			)
 			if (result.ok) {
 				updateUploadStatus(index, 'success')
-
+				setIsTakingPhoto(false)
 				setIsActive(false)
 			} else {
 				throw new Error('Failed to upload photo')
@@ -907,6 +919,8 @@ const DetailScreen = () => {
 		} catch (error) {
 			console.error('Error uploading image to Google Drive: ', error)
 			updateUploadStatus(index, 'error')
+			setIsTakingPhoto(false)
+			setIsActive(false)
 		}
 	}
 
@@ -1026,22 +1040,38 @@ const DetailScreen = () => {
 						color='white'
 						style={{ position: 'absolute', top: 30, left: 30 }}
 					/>
-					<Pressable
-						onPress={() => {
-							// Ustawienie stanu na false
-							onTakePicturePressed(selectedElementName, selectedElementIndex)
-							// Wywołanie funkcji z wybraną nazwą
-						}}
-						style={{
-							position: 'absolute',
-							alignSelf: 'center',
-							bottom: 90,
-							width: 75,
-							height: 65,
-							backgroundColor: 'white',
-							borderRadius: 75,
-						}}
-					/>
+					{isTakingPhoto ? (
+						<ActivityIndicator
+							size='large'
+							color='white'
+							style={{
+								position: 'absolute',
+								alignSelf: 'center',
+								bottom: 90,
+							}}
+						/>
+					) : (
+						<Pressable
+							onPress={async () => {
+								setIsTakingPhoto(true)
+								// Ustawienie stanu na false
+								try {
+									await onTakePicturePressed(selectedElementName, selectedElementIndex)
+								} catch (err) {
+									console.error('Błąd przy robieniu zdjęcia:', err)
+								}
+							}}
+							style={{
+								position: 'absolute',
+								alignSelf: 'center',
+								bottom: 90,
+								width: 75,
+								height: 65,
+								backgroundColor: 'white',
+								borderRadius: 75,
+							}}
+						/>
+					)}
 				</>
 			)}
 		</View>
