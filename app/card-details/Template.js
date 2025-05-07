@@ -221,6 +221,7 @@ const TemplateManagerScreen = () => {
 						mode='contained'
 						onPress={createFolderAndCopyTemplate}
 						disabled={!selectedTemplate || !folderName || isProcessing}
+						loading={isProcessing}
 						style={styles.button}>
 						Stwórz folder i skopiuj szablon
 					</PaperButton>

@@ -30,6 +30,7 @@ const DetailScreen = () => {
 	const [templateValuesState, setTemplateValuesState] = useState([])
 	const navigation = useNavigation()
 	const isFocused = useIsFocused()
+	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const route = useRoute()
 	const { id, title } = route.params
@@ -494,158 +495,163 @@ const DetailScreen = () => {
 	}
 
 	const handleSubmit = async () => {
-		const accessToken = (await GoogleSignin.getTokens()).accessToken
+		setIsSubmitting(true)
+		try {
+			const accessToken = (await GoogleSignin.getTokens()).accessToken
 
-		const updatedElements = elements.map((element, index) => {
-			const updatedContent = element.content.map((text, contentIndex) => {
-				const state = switchValuesContent[index][contentIndex]
-				let updatedText = text
+			const updatedElements = elements.map((element, index) => {
+				const updatedContent = element.content.map((text, contentIndex) => {
+					const state = switchValuesContent[index][contentIndex]
+					let updatedText = text
 
-				if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
-					const lowercaseState = state.toLowerCase()
-					const pattern = new RegExp(`\\b${state}\\b`, 'gi')
-					updatedText = updatedText.replace(pattern, lowercaseState)
-				}
+					if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
+						const lowercaseState = state.toLowerCase()
+						const pattern = new RegExp(`\\b${state}\\b`, 'gi')
+						updatedText = updatedText.replace(pattern, lowercaseState)
+					}
+
+					return {
+						text: updatedText,
+						state: state !== undefined ? state : 'Nie dotyczy',
+						comment: comments[index]?.[contentIndex] || '', // Include the corresponding comment from the state
+					}
+				})
 
 				return {
-					text: updatedText,
-					state: state !== undefined ? state : 'Nie dotyczy',
-					comment: comments[index]?.[contentIndex] || '', // Include the corresponding comment from the state
+					...element,
+					isOpen: !!openSections[index],
+					content: updatedContent,
 				}
 			})
 
-			return {
-				...element,
-				isOpen: !!openSections[index],
-				content: updatedContent,
-			}
-		})
+			const getSheetMetadata = async () => {
+				const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
+				const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
 
-		const getSheetMetadata = async () => {
-			const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
-			const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
+				try {
+					const response = await fetch(url, {
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					})
 
-			try {
-				const response = await fetch(url, {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				})
-
-				if (!response.ok) {
-					console.error('HTTP Error:', response.status, await response.text())
-					throw new Error('Failed to fetch sheet metadata.')
-				}
-
-				const data = await response.json()
-
-				// Processing response to find the sheetId
-				const sheets = data.sheets
-				if (!sheets || sheets.length === 0) {
-					console.error('No sheets found in the received data.')
-					return null
-				}
-
-				const targetSheet = sheets.find(sheet => sheet.properties.title === title)
-				if (!targetSheet) {
-					console.error(`Sheet titled ${title}  not found.`)
-					return null
-				}
-
-				const sheetId = targetSheet.properties.sheetId
-				const sheetName = targetSheet.properties.title
-				return { sheetId, sheetName }
-			} catch (error) {
-				console.error('Error fetching sheet metadata:', error)
-				return null
-			}
-		}
-
-		async function getRowCount(spreadsheetId, sheetName) {
-			const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-
-			try {
-				const response = await fetch(url, {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				})
-				const result = await response.json()
-
-				if (response.ok) {
-					const totalRows = result.values ? result.values.length : 0
-
-					if (!result.values) {
-						return 0 // Brak danych w kolumnie
+					if (!response.ok) {
+						console.error('HTTP Error:', response.status, await response.text())
+						throw new Error('Failed to fetch sheet metadata.')
 					}
 
-					// Szukamy pierwszego pustego wiersza
-					for (let i = 0; i < result.values.length; i++) {
-						if (result.values[i].length === 0 || result.values[i][0] === '' || result.values[i][0] == null) {
-							return i // Zwracamy liczbę wierszy do pierwszego pustego
+					const data = await response.json()
+
+					// Processing response to find the sheetId
+					const sheets = data.sheets
+					if (!sheets || sheets.length === 0) {
+						console.error('No sheets found in the received data.')
+						return null
+					}
+
+					const targetSheet = sheets.find(sheet => sheet.properties.title === title)
+					if (!targetSheet) {
+						console.error(`Sheet titled ${title}  not found.`)
+						return null
+					}
+
+					const sheetId = targetSheet.properties.sheetId
+					const sheetName = targetSheet.properties.title
+					return { sheetId, sheetName }
+				} catch (error) {
+					console.error('Error fetching sheet metadata:', error)
+					return null
+				}
+			}
+
+			async function getRowCount(spreadsheetId, sheetName) {
+				const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
+
+				try {
+					const response = await fetch(url, {
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					})
+					const result = await response.json()
+
+					if (response.ok) {
+						const totalRows = result.values ? result.values.length : 0
+
+						if (!result.values) {
+							return 0 // Brak danych w kolumnie
 						}
-					}
 
-					return totalRows // Jeśli nie ma pustego wiersza, zwracamy całkowitą liczbę wierszy
-				} else {
-					console.error('API Error:', result.error)
+						// Szukamy pierwszego pustego wiersza
+						for (let i = 0; i < result.values.length; i++) {
+							if (result.values[i].length === 0 || result.values[i][0] === '' || result.values[i][0] == null) {
+								return i // Zwracamy liczbę wierszy do pierwszego pustego
+							}
+						}
+
+						return totalRows // Jeśli nie ma pustego wiersza, zwracamy całkowitą liczbę wierszy
+					} else {
+						console.error('API Error:', result.error)
+						return 0
+					}
+				} catch (error) {
+					console.error('Error fetching row count:', error)
 					return 0
 				}
-			} catch (error) {
-				console.error('Error fetching row count:', error)
-				return 0
 			}
-		}
 
-		// Prepare updated data elements and other necessary transformations
-		const data = {
-			switchValues: switchValues.map(value => (value ? 'Tak' : 'Nie')),
-			elements: updatedElements,
-			comment: comment,
-		}
+			const data = {
+				switchValues: switchValues.map(value => (value ? 'Tak' : 'Nie')),
+				elements: updatedElements,
+				comment: comment,
+			}
 
-		const values = updatedElements.map(element => {
-			// Przygotowanie wiersza do przesłania do arkusza
-			let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
-			element.content.forEach(content => {
-				let contentValue = content.state ? content.state : 'Nie dotyczy'
-				if (content.comment) {
-					contentValue += `, ${content.comment}`
-				}
-				row.push(contentValue)
+			const values = updatedElements.map(element => {
+				// Przygotowanie wiersza do przesłania do arkusza
+				let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
+				element.content.forEach(content => {
+					let contentValue = content.state ? content.state : 'Nie dotyczy'
+					if (content.comment) {
+						contentValue += `, ${content.comment}`
+					}
+					row.push(contentValue)
+				})
+				return row
 			})
-			return row
-		})
 
-		// Fetching metadata and row counts
-		const spreadsheetId = (await retrieveData()).copiedTemplateId
-		const sheetId = (await getSheetMetadata()).sheetId
-		const sheetName = (await getSheetMetadata()).sheetName
-		const rowCount = await getRowCount(spreadsheetId, sheetName)
+			// Fetching metadata and row counts
+			const spreadsheetId = (await retrieveData()).copiedTemplateId
+			const sheetId = (await getSheetMetadata()).sheetId
+			const sheetName = (await getSheetMetadata()).sheetName
+			const rowCount = await getRowCount(spreadsheetId, sheetName)
 
-		// Prepare data for appending
-		const startRow = rowCount.lastRowWithData + 1 // The row after the last one with data
-		const range = `A${startRow}`
+			// Prepare data for appending
+			const startRow = rowCount.lastRowWithData + 1 // The row after the last one with data
+			const range = `A${startRow}`
 
-		//const templateValues = await fetchTemplate(rowCount)
+			//const templateValues = await fetchTemplate(rowCount)
 
-		const updatedTemplate = mergeTemplateWithData(templateValuesState, values)
+			const updatedTemplate = mergeTemplateWithData(templateValuesState, values)
 
-		console.log(templateValuesState.length)
+			console.log(templateValuesState.length)
 
-		const rowCountBeforeAdding = await getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken)
+			const rowCountBeforeAdding = await getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken)
 
-		//const templateRowCount = templateValues.length
+			//const templateRowCount = templateValues.length
 
-		console.log('Szablon danych:', templateValuesState)
-		console.log('Dane użytkownika:', values)
+			console.log('Szablon danych:', templateValuesState)
+			console.log('Dane użytkownika:', values)
 
-		// Append new data
-		await appendData(spreadsheetId, sheetName, updatedTemplate, accessToken)
+			// Append new data
+			await appendData(spreadsheetId, sheetName, updatedTemplate, accessToken)
 
-		// Adjust and execute the copy of styles
-		await copyStylesAndData(spreadsheetId, sheetId, rowCount, accessToken, sheetName)
-
+			// Adjust and execute the copy of styles
+			await copyStylesAndData(spreadsheetId, sheetId, rowCount, accessToken, sheetName)
+		} catch (error) {
+			console.error('Błąd podczas wysyłania formularza:', error)
+		} finally {
+			setIsSubmitting(false) // 👉 odblokuj przycisk po zakończeniu
+		}
 		//await checkAndRemoveExcessRecords(spreadsheetId, sheetName, accessToken, rowCountBeforeAdding, templateRowCount)
 	}
 
@@ -980,8 +986,8 @@ const DetailScreen = () => {
 					))}
 				</View>
 
-				<Button onPress={handleSubmit} mode='contained'>
-					<Text style={styles.submitButtonText}>WYŚLIJ</Text>
+				<Button onPress={handleSubmit} mode='contained' disabled={isSubmitting} loading={isSubmitting}>
+					{isSubmitting ? 'Wysyłanie...' : 'WYŚLIJ'}
 				</Button>
 			</ScrollView>
 			{isActive && (
