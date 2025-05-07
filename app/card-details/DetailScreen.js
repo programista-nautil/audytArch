@@ -44,6 +44,7 @@ const DetailScreen = () => {
 	const isFocused = useIsFocused()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [isTakingPhoto, setIsTakingPhoto] = useState(false)
+	const [syncMessage, setSyncMessage] = useState(null)
 
 	const route = useRoute()
 	const { id, title } = route.params
@@ -972,6 +973,8 @@ const DetailScreen = () => {
 				if (pendingPhotos.length > 0) {
 					console.log(`Synchronizuję ${pendingPhotos.length} zdjęć z kolejki`)
 
+					let successCount = 0
+
 					for (const item of pendingPhotos) {
 						try {
 							const token = (await GoogleSignin.getTokens()).accessToken
@@ -988,11 +991,16 @@ const DetailScreen = () => {
 								},
 								true
 							)
+							successCount++
 						} catch (err) {
 							console.error('Błąd synchronizacji zdjęcia z kolejki:', err)
 						}
 					}
 					await AsyncStorage.removeItem('pendingPhotos')
+					successCount === 1
+						? setSyncMessage(`Znowu online, wysłano ${successCount} zdjęcie`)
+						: setSyncMessage(`Znowu online, wysłano ${successCount} zdjęć`)
+					setTimeout(() => setSyncMessage(null), 6000)
 				}
 			}
 
@@ -1141,6 +1149,20 @@ const DetailScreen = () => {
 						/>
 					)}
 				</>
+			)}
+			{syncMessage && (
+				<View
+					style={{
+						position: 'absolute',
+						bottom: 30,
+						alignSelf: 'center',
+						backgroundColor: '#323232',
+						paddingHorizontal: 20,
+						paddingVertical: 10,
+						borderRadius: 20,
+					}}>
+					<Text style={{ color: 'white' }}>{syncMessage}</Text>
+				</View>
 			)}
 		</View>
 	)
