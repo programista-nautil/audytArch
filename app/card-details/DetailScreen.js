@@ -20,6 +20,7 @@ import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-n
 import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { checkInternet } from '../../lib/checkInternet'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -48,6 +49,7 @@ const DetailScreen = () => {
 	const { id, title } = route.params
 
 	const [currentId_textid, setCurrentId_textid] = useState('')
+	const [isOnline, setIsOnline] = useState(true)
 
 	useEffect(() => {
 		const fetchId = async () => {
@@ -894,32 +896,43 @@ const DetailScreen = () => {
 	//write function to upload photo to google drive
 
 	const uploadPhoto = async (photo, name, index) => {
-		try {
-			const token = (await GoogleSignin.getTokens()).accessToken
-			GDrive.setAccessToken(token)
-			GDrive.init()
+		const online = await checkInternet()
+		if (online) {
+			try {
+				const token = (await GoogleSignin.getTokens()).accessToken
+				GDrive.setAccessToken(token)
+				GDrive.init()
 
-			const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
-			const result = await GDrive.files.createFileMultipart(
-				base64,
-				'image/jpeg',
-				{
-					parents: [await AsyncStorage.getItem('@PhotosFolderId')],
-					name: name,
-				},
-				true
-			)
-			if (result.ok) {
-				updateUploadStatus(index, 'success')
+				const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
+				const result = await GDrive.files.createFileMultipart(
+					base64,
+					'image/jpeg',
+					{
+						parents: [await AsyncStorage.getItem('@PhotosFolderId')],
+						name: name,
+					},
+					true
+				)
+				if (result.ok) {
+					updateUploadStatus(index, 'success')
+					setIsTakingPhoto(false)
+					setIsActive(false)
+				} else {
+					throw new Error('Failed to upload photo')
+				}
+			} catch (error) {
+				console.error('Error uploading image to Google Drive: ', error)
+				updateUploadStatus(index, 'error')
 				setIsTakingPhoto(false)
 				setIsActive(false)
-			} else {
-				throw new Error('Failed to upload photo')
 			}
-		} catch (error) {
-			console.error('Error uploading image to Google Drive: ', error)
-			updateUploadStatus(index, 'error')
-			setIsTakingPhoto(false)
+		} else {
+			console.log('Brak internetu – zapisuję do kolejki')
+
+			const pendingPhotos = JSON.parse(await AsyncStorage.getItem('pendingPhotos')) || []
+			pendingPhotos.push({ path: photo.path, name })
+			await AsyncStorage.setItem('pendingPhotos', JSON.stringify(pendingPhotos))
+			updateUploadStatus(index, 'offline')
 			setIsActive(false)
 		}
 	}
@@ -931,6 +944,61 @@ const DetailScreen = () => {
 			return updated
 		})
 	}
+
+	const usePrevious = value => {
+		const ref = useRef()
+		useEffect(() => {
+			ref.current = value
+		}, [value])
+		return ref.current
+	}
+
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			const online = await checkInternet()
+			setIsOnline(online)
+			console.log('aplikacja jest ' + online)
+		}, 10000)
+
+		return () => clearInterval(interval)
+	}, [])
+
+	useEffect(() => {
+		if (isOnline) {
+			console.log('znowu online, wysylam zdjecia')
+			const syncPhotos = async () => {
+				const pendingPhotos = JSON.parse(await AsyncStorage.getItem('pendingPhotos')) || []
+
+				if (pendingPhotos.length > 0) {
+					console.log(`Synchronizuję ${pendingPhotos.length} zdjęć z kolejki`)
+
+					for (const item of pendingPhotos) {
+						try {
+							const token = (await GoogleSignin.getTokens()).accessToken
+							GDrive.setAccessToken(token)
+							GDrive.init()
+
+							const base64 = await RNFetchBlob.fs.readFile(`file://${item.path}`, 'base64')
+							await GDrive.files.createFileMultipart(
+								base64,
+								'image/jpeg',
+								{
+									parents: [await AsyncStorage.getItem('@PhotosFolderId')],
+									name: item.name,
+								},
+								true
+							)
+						} catch (err) {
+							console.error('Błąd synchronizacji zdjęcia z kolejki:', err)
+						}
+					}
+					await AsyncStorage.removeItem('pendingPhotos')
+				}
+			}
+
+			syncPhotos()
+		}
+	}, [isOnline])
 
 	return (
 		<View style={{ flex: 1 }}>
