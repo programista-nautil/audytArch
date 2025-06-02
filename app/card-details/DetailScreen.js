@@ -263,25 +263,30 @@ const DetailScreen = () => {
 			})
 			const result = await response.json()
 
-			if (response.ok) {
-				const totalRows = result.values ? result.values.length : 0
-
-				if (!result.values) {
-					return 0 // Brak danych w kolumnie
-				}
-
-				// Szukamy pierwszego pustego wiersza
-				for (let i = 0; i < result.values.length; i++) {
-					if (result.values[i].length === 0 || result.values[i][0] === '' || result.values[i][0] == null) {
-						return i // Zwracamy liczbę wierszy do pierwszego pustego
-					}
-				}
-
-				return totalRows // Jeśli nie ma pustego wiersza, zwracamy całkowitą liczbę wierszy
-			} else {
+			if (!response.ok) {
 				console.error('API Error:', result.error)
 				return 0
 			}
+
+			const values = result.values || []
+			const totalRows = values.length
+
+			// 1. Szukamy pierwszego wystąpienia znaku '/'
+			for (let i = 0; i < values.length; i++) {
+				if (values[i][0] === '/') {
+					return i
+				}
+			}
+
+			// 2. Jeśli nie znaleziono '/', szukamy pierwszego pustego
+			for (let i = 0; i < values.length; i++) {
+				if (!values[i][0]) {
+					return i
+				}
+			}
+
+			// 3. Jeśli nie ma pustych, zwracamy całkowitą liczbę
+			return totalRows
 		} catch (error) {
 			console.error('Error fetching row count:', error)
 			return 0
