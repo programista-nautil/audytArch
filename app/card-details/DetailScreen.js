@@ -18,8 +18,6 @@ import {
 import { Feather } from '@expo/vector-icons'
 import { useNavigation, useRoute, useIsFocused, useFocusEffect } from '@react-navigation/native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
-import styles from './1.style'
-import { Card, Button, Paragraph, TextInput, ToggleButton } from 'react-native-paper'
 import { FontAwesome5 } from '@expo/vector-icons'
 import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-native-vision-camera'
 import RNFetchBlob from 'rn-fetch-blob'
