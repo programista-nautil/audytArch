@@ -1,3 +1,4 @@
+import '../global.css'
 import { Stack } from 'expo-router'
 import { useCallback, useEffect } from 'react'
 import { useFonts } from 'expo-font'

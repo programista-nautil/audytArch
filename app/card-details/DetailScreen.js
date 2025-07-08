@@ -10,7 +10,12 @@ import {
 	Image,
 	BackHandler,
 	ActivityIndicator,
+	TouchableOpacity,
+	TextInput as NativeTextInput,
+	SafeAreaView,
+	Modal,
 } from 'react-native'
+import { Feather } from '@expo/vector-icons'
 import { useNavigation, useRoute, useIsFocused, useFocusEffect } from '@react-navigation/native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import styles from './1.style'
@@ -21,6 +26,7 @@ import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { checkInternet } from '../../lib/checkInternet'
+import { Stack, router } from 'expo-router'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -45,6 +51,7 @@ const DetailScreen = () => {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [isTakingPhoto, setIsTakingPhoto] = useState(false)
 	const [syncMessage, setSyncMessage] = useState(null)
+	const [isLoading, setIsLoading] = useState(true)
 
 	const route = useRoute()
 	const { id, title } = route.params
@@ -121,9 +128,7 @@ const DetailScreen = () => {
 		try {
 			const response = await fetch(
 				`https://sheets.googleapis.com/v4/spreadsheets/${
-					(
-						await retrieveData()
-					).copiedTemplateId
+					(await retrieveData()).copiedTemplateId
 				}/values/${encodeURIComponent(SHEET_ID)}!A1:P${rowCount}`,
 				{
 					headers: {
@@ -228,27 +233,15 @@ const DetailScreen = () => {
 
 	useEffect(() => {
 		const backAction = () => {
-			Alert.alert(
-				'Potwierdzenie wyjścia',
-				'Czy na pewno chcesz wrócić do menu głównego? Stracisz wszystkie zaznaczone opcje i przyciski.',
-				[
-					{
-						text: 'Nie',
-						style: 'cancel',
-					},
-					{
-						text: 'Tak',
-						onPress: () => navigation.goBack(), // jak przy kliknięciu ikony
-					},
-				]
-			)
-			return true // Zatrzymujemy domyślne cofanie
+			Alert.alert('Potwierdzenie wyjścia', 'Czy na pewno chcesz wrócić? Niezapisane zmiany zostaną utracone.', [
+				{ text: 'Anuluj', style: 'cancel' },
+				{ text: 'Wyjdź', style: 'destructive', onPress: () => router.back() },
+			])
+			return true
 		}
-
 		const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction)
-
 		return () => backHandler.remove()
-	}, [navigation])
+	}, [])
 
 	async function getRowCountEffect(spreadsheetId, sheetName) {
 		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
@@ -337,6 +330,7 @@ const DetailScreen = () => {
 
 	useEffect(() => {
 		const fetchData = async () => {
+			setIsLoading(true)
 			try {
 				const tokens = await GoogleSignin.getTokens()
 				const accessToken = tokens.accessToken
@@ -360,6 +354,8 @@ const DetailScreen = () => {
 				setSwitchValuesContent(data.map(() => Array(3).fill(false)))
 			} catch (error) {
 				console.error('Błąd podczas pobierania danych:', error)
+			} finally {
+				setIsLoading(false) // <<<< DODAJ
 			}
 		}
 
@@ -877,7 +873,6 @@ const DetailScreen = () => {
 	const { hasPermission, requestPermission } = useCameraPermission()
 	const [isActive, setIsActive] = useState(false)
 	const [isCameraReady, setIsCameraReady] = useState(false)
-	const [photo, setPhoto] = useState(null)
 	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
 	const [selectedElementName, setSelectedElementName] = useState('')
 	const [selectedElementIndex, setSelectedElementIndex] = useState(null)
@@ -895,7 +890,6 @@ const DetailScreen = () => {
 			const photo = await cameraRef.current.takePhoto()
 			// Zrób coś z obiektem photo, na przykład zapisz go lub wyświetl
 			uploadPhoto(photo, name, index)
-			setPhoto(photo)
 		}
 	}
 
@@ -1013,163 +1007,205 @@ const DetailScreen = () => {
 		}
 	}, [isOnline])
 
-	return (
-		<View style={{ flex: 1 }}>
-			<ScrollView>
-				<View style={{ marginHorizontal: 10 }}>
-					{elements.map((element, index) => (
-						<Card key={index} style={styles.card}>
-							<Card.Title title={element.name} />
-							<Card.Content>
-								<Switch value={openSections[index]} onValueChange={() => handleToggle(index)} style={styles.switch} />
-								{openSections[index] && (
-									<View>
-										{element.content.map((content, contentIndex) => (
-											<View key={contentIndex} style={styles.contentContainer}>
-												<Paragraph>{content}</Paragraph>
-												<View style={styles.buttonGroup}>
-													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Tak' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Tak')}>
-														Tak
-													</Button>
-													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Nie' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie')}>
-														Nie
-													</Button>
-													<Button
-														mode={switchValuesContent[index][contentIndex] === 'Nie dotyczy' ? 'contained' : 'outlined'}
-														onPress={() => handleSwitchContent(index, contentIndex, 'Nie dotyczy')}>
-														Nie dotyczy
-													</Button>
-												</View>
-												<TextInput
-													label='Uwagi'
-													style={styles.input}
-													value={comments[index] || ''}
-													onChangeText={text => handleCommentChange(index, contentIndex, text)}
-												/>
-											</View>
-										))}
-										<Button
-											icon='camera'
-											mode='contained'
-											onPress={() => {
-												let com = comments[0] && comments[0][0] ? comments[0][0] : ''
+	if (isLoading) {
+		return (
+			<SafeAreaView className='flex-1 justify-center items-center bg-gray-100'>
+				<ActivityIndicator size='large' color='#3B82F6' />
+				<Text className='mt-4 text-lg text-gray-600'>Wczytywanie audytu...</Text>
+			</SafeAreaView>
+		)
+	}
 
+	return (
+		<SafeAreaView className='flex-1 bg-gray-100'>
+			<Stack.Screen options={{ headerTitle: title, headerTitleAlign: 'center' }} />
+
+			<ScrollView contentContainerClassName='pb-28'>
+				<View className='p-2'>
+					{elements.map((element, index) => (
+						<View key={index} className='bg-white my-2 rounded-xl shadow-sm overflow-hidden'>
+							{/* Nagłówek sekcji z oryginalnym Switchem */}
+							<View className='p-4 flex-row justify-between items-center'>
+								<Text className='text-lg font-bold text-gray-800 flex-1 pr-4'>{element.name}</Text>
+								<Switch
+									trackColor={{ false: '#E5E7EB', true: '#81b0ff' }}
+									thumbColor={openSections[index] ? '#3B82F6' : '#f4f3f4'}
+									ios_backgroundColor='#3e3e3e'
+									onValueChange={() => handleToggle(index)}
+									value={!!openSections[index]}
+								/>
+							</View>
+
+							{/* Rozwijana zawartość - renderowana warunkowo jak w oryginale */}
+							{openSections[index] && (
+								<View>
+									{element.content.map((content, contentIndex) => (
+										<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
+											<Text className='text-base text-gray-700 mb-4'>{content}</Text>
+
+											{/* Przyciski Tak/Nie/Nie dotyczy - ostylowane, logika ta sama */}
+											<View className='flex-row flex-wrap gap-2 mb-4'>
+												{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
+													<TouchableOpacity
+														key={value}
+														onPress={() => handleSwitchContent(index, contentIndex, value)}
+														className={`px-3 py-2 rounded-full border ${switchValuesContent[index]?.[contentIndex] === value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+														<Text
+															className={`font-semibold ${switchValuesContent[index]?.[contentIndex] === value ? 'text-white' : 'text-gray-700'}`}>
+															{value}
+														</Text>
+													</TouchableOpacity>
+												))}
+											</View>
+
+											{/* Pole na uwagi - ostylowane, logika ta sama */}
+											<NativeTextInput
+												placeholder='Dodaj uwagi...'
+												value={comments[index]?.[contentIndex] || ''}
+												onChangeText={text => handleCommentChange(index, contentIndex, text)}
+												className='bg-white border border-gray-300 rounded-lg p-3 text-base h-20'
+												textAlignVertical='top'
+												multiline
+											/>
+										</View>
+									))}
+
+									{/* Przycisk aparatu na dole sekcji - jak w oryginale */}
+									<View className='p-4 border-t border-gray-200'>
+										<TouchableOpacity
+											onPress={() => {
+												let com = comments[index]?.[0] || ''
 												setSelectedElementName(element.name + com)
 												setSelectedElementIndex(index)
 												setIsActive(true)
 											}}
-											style={styles.button}>
-											Otwórz aparat
-										</Button>
-										{uploadStatuses[index] === 'success' && (
-											<Text style={{ color: 'green', marginTop: 4 }}>Zdjęcie zostało wysłane</Text>
-										)}
-										{uploadStatuses[index] === 'error' && (
-											<Text style={{ color: 'red', marginTop: 4 }}>Wysłanie zdjęcia nie powiodło się</Text>
-										)}
-										{uploadStatuses[index] === 'offline' && (
-											<Text style={{ color: 'orange', marginTop: 4 }}>Zdjęcie zapisano offline</Text>
+											className='flex-row items-center justify-center bg-gray-200 active:bg-gray-300 rounded-lg p-3'>
+											<Feather name='camera' size={20} color='#4B5563' />
+											<Text className='text-gray-700 font-semibold ml-3'>Zrób zdjęcie</Text>
+										</TouchableOpacity>
+
+										{/* Status wysyłania zdjęcia */}
+										{uploadStatuses[index] && (
+											<View
+												className={`mt-2 p-2 rounded-md flex-row items-center ${
+													uploadStatuses[index] === 'success'
+														? 'bg-green-100'
+														: uploadStatuses[index] === 'error'
+															? 'bg-red-100'
+															: 'bg-yellow-100'
+												}`}>
+												<Feather
+													name={
+														uploadStatuses[index] === 'success'
+															? 'check-circle'
+															: uploadStatuses[index] === 'error'
+																? 'x-circle'
+																: 'clock'
+													}
+													size={16}
+													color={
+														uploadStatuses[index] === 'success'
+															? '#16A34A'
+															: uploadStatuses[index] === 'error'
+																? '#DC2626'
+																: '#D97706'
+													}
+												/>
+												<Text
+													className={`ml-2 font-medium ${
+														uploadStatuses[index] === 'success'
+															? 'text-green-800'
+															: uploadStatuses[index] === 'error'
+																? 'text-red-800'
+																: 'text-yellow-800'
+													}`}>
+													{uploadStatuses[index] === 'success'
+														? 'Zdjęcie wysłane'
+														: uploadStatuses[index] === 'error'
+															? 'Błąd wysyłania'
+															: 'Zapisano w kolejce'}
+												</Text>
+											</View>
 										)}
 									</View>
-								)}
-							</Card.Content>
-						</Card>
+								</View>
+							)}
+						</View>
 					))}
 				</View>
-
-				<Button onPress={handleSubmit} mode='contained' disabled={isSubmitting} loading={isSubmitting}>
-					{isSubmitting ? 'Wysyłanie...' : 'WYŚLIJ'}
-				</Button>
 			</ScrollView>
-			{isActive && (
-				<Camera
-					ref={cameraRef}
-					style={StyleSheet.absoluteFill}
-					device={device}
-					photo={true}
-					isActive={isCameraReady}
-					onInitialized={() => setIsCameraReady(true)}
-					onError={error => {
-						console.error('Camera error:', error)
-						Alert.alert('Camera Error', 'An error occurred with the camera.')
-					}}
-				/>
-			)}
-			{photo && (
-				<View style={{ flex: 1 }}>
-					<Image source={{ uri: `file://${photo.path}` }} style={StyleSheet.absoluteFill} />
-					<FontAwesome5
-						onPress={() => setPhoto(null)}
-						name='arrow-left'
-						size={30}
-						color='white'
-						style={{ position: 'absolute', top: 130, left: 130 }}
-					/>
-				</View>
-			)}
 
-			{isActive && (
-				<>
-					<FontAwesome5
-						onPress={() => setIsActive(false)}
-						name='arrow-left'
-						size={30}
-						color='white'
-						style={{ position: 'absolute', top: 30, left: 30 }}
-					/>
-					{isTakingPhoto ? (
-						<ActivityIndicator
-							size='large'
-							color='white'
-							style={{
-								position: 'absolute',
-								alignSelf: 'center',
-								bottom: 90,
-							}}
-						/>
+			{/* Przycisk Wyślij - ostylowany, logika ta sama */}
+			<View className='absolute bottom-5 right-5 left-5'>
+				<TouchableOpacity
+					onPress={handleSubmit}
+					disabled={isSubmitting}
+					className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
+					{isSubmitting ? (
+						<ActivityIndicator color='white' />
 					) : (
-						<Pressable
-							onPress={async () => {
-								setIsTakingPhoto(true)
-								// Ustawienie stanu na false
-								try {
-									await onTakePicturePressed(selectedElementName, selectedElementIndex)
-								} catch (err) {
-									console.error('Błąd przy robieniu zdjęcia:', err)
-								}
-							}}
-							style={{
-								position: 'absolute',
-								alignSelf: 'center',
-								bottom: 90,
-								width: 75,
-								height: 65,
-								backgroundColor: 'white',
-								borderRadius: 75,
-							}}
-						/>
+						<>
+							<Feather name='send' size={20} color='white' />
+							<Text className='text-white text-lg font-bold ml-3'>WYŚLIJ</Text>
+						</>
 					)}
-				</>
-			)}
+				</TouchableOpacity>
+			</View>
+
+			{/* Modal z aparatem - UI jak wcześniej, logika podpięta pod oryginał */}
+			<Modal visible={isActive} onRequestClose={() => setIsActive(false)} animationType='slide'>
+				{device == null ? (
+					<View className='flex-1 justify-center items-center bg-black'>
+						<Text className='text-white text-xl'>Brak aparatu</Text>
+					</View>
+				) : (
+					<View className='flex-1'>
+						<Camera
+							ref={cameraRef}
+							style={StyleSheet.absoluteFill}
+							device={device}
+							photo={true}
+							isActive={true}
+							onInitialized={() => setIsCameraReady(true)}
+						/>
+						<TouchableOpacity
+							onPress={() => setIsActive(false)}
+							className='absolute top-12 left-5 bg-black/50 p-3 rounded-full'>
+							<Feather name='x' size={24} color='white' />
+						</TouchableOpacity>
+						<View className='absolute bottom-10 w-full items-center'>
+							<TouchableOpacity
+								disabled={isTakingPhoto}
+								onPress={async () => {
+									setIsTakingPhoto(true) // <<<< DODAĆ TĘ LINIĘ
+									try {
+										await onTakePicturePressed(selectedElementName, selectedElementIndex)
+									} catch (err) {
+										console.error('Błąd przy robieniu zdjęcia:', err)
+										// W razie błędu, zresetuj stany
+										setIsTakingPhoto(false)
+										setIsActive(false)
+									}
+								}}
+								className='w-20 h-20 bg-white/80 rounded-full border-4 border-white justify-center items-center'>
+								{isTakingPhoto ? (
+									<ActivityIndicator size='large' color='#000' />
+								) : (
+									<Feather name='camera' size={40} color='#333' />
+								)}
+							</TouchableOpacity>
+						</View>
+					</View>
+				)}
+			</Modal>
+
+			{/* Komunikat o synchronizacji */}
 			{syncMessage && (
-				<View
-					style={{
-						position: 'absolute',
-						bottom: 30,
-						alignSelf: 'center',
-						backgroundColor: '#323232',
-						paddingHorizontal: 20,
-						paddingVertical: 10,
-						borderRadius: 20,
-					}}>
-					<Text style={{ color: 'white' }}>{syncMessage}</Text>
+				<View className='absolute bottom-24 self-center bg-slate-800 px-5 py-3 rounded-full shadow-lg'>
+					<Text className='text-white font-semibold'>{syncMessage}</Text>
 				</View>
 			)}
-		</View>
+		</SafeAreaView>
 	)
 }
 

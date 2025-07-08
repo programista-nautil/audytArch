@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal } from 'react-native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
-import { Menu, Provider, Button as PaperButton, TextInput } from 'react-native-paper'
+import { Provider, TextInput } from 'react-native-paper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useNavigation } from '@react-navigation/native'
+import { Feather } from '@expo/vector-icons'
+import { Stack } from 'expo-router'
 
+// --- Logika (bez zmian) ---
 const templates = [
 	{
 		id: '1',
@@ -32,33 +34,17 @@ const templates = [
 	},
 ]
 
-const storeData = async (photosFolderId, copiedTemplateId, textId, id, navigation) => {
+const storeData = async (photosFolderId, copiedTemplateId, textId, id) => {
 	try {
-		const creationDate = new Date().toISOString() // Zapisujemy datę w formacie ISO
-		const templateLink = `https://drive.google.com/file/d/${copiedTemplateId}/view` // Tworzymy link do szablonu
-
-		console.log(
-			'Saving data to storage...' +
-				photosFolderId +
-				' ' +
-				copiedTemplateId +
-				' ' +
-				textId +
-				' ' +
-				id +
-				' ' +
-				creationDate +
-				' ' +
-				templateLink
-		)
+		const creationDate = new Date().toISOString()
+		const templateLink = `https://docs.google.com/spreadsheets/d/${copiedTemplateId}/edit`
 
 		await AsyncStorage.setItem('@Id', id)
 		await AsyncStorage.setItem('@PhotosFolderId', photosFolderId)
 		await AsyncStorage.setItem('@CopiedTemplateId', copiedTemplateId)
-		await AsyncStorage.setItem('@SelectedTextId', textId) // Saving the text_id
-		await AsyncStorage.setItem('@TemplateCreationDate', creationDate) // Zapisujemy datę
-		await AsyncStorage.setItem('@TemplateLink', templateLink) // Zapisujemy link do szablonu
-
+		await AsyncStorage.setItem('@SelectedTextId', textId)
+		await AsyncStorage.setItem('@TemplateCreationDate', creationDate)
+		await AsyncStorage.setItem('@TemplateLink', templateLink)
 		console.log('Data successfully saved')
 	} catch (error) {
 		console.error('Failed to save the data to the storage', error)
@@ -66,8 +52,7 @@ const storeData = async (photosFolderId, copiedTemplateId, textId, id, navigatio
 }
 
 const TemplateManagerScreen = () => {
-	const navigation = useNavigation()
-	const [visible, setVisible] = useState(false)
+	const [modalVisible, setModalVisible] = useState(false)
 	const [selectedTemplate, setSelectedTemplate] = useState(null)
 	const [folderName, setFolderName] = useState('')
 	const [folderId, setFolderId] = useState(null)
@@ -84,187 +69,183 @@ const TemplateManagerScreen = () => {
 		})
 	}, [])
 
-	const openMenu = () => setVisible(true)
-	const closeMenu = () => setVisible(false)
-
 	const createFolderAndCopyTemplate = async () => {
 		if (!selectedTemplate) {
-			console.error('No template selected.')
+			setError('Nie wybrano szablonu.')
+			return
+		}
+		if (!folderName.trim()) {
+			setError('Nazwa folderu nie może być pusta.')
 			return
 		}
 
 		setIsProcessing(true)
+		setError(null)
+		setFolderId(null)
+
 		try {
 			const token = (await GoogleSignin.getTokens()).accessToken
+			let response
 
-			// Test file access
-			let response = await fetch(`https://www.googleapis.com/drive/v3/files/${selectedTemplate.fileId}`, {
-				method: 'GET',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-			})
-
-			if (!response.ok) {
-				const errorText = await response.text()
-				throw new Error(`Failed to access file. Status: ${response.status}, Response: ${errorText}`)
-			}
-
-			// Tworzenie głównego folderu
 			response = await fetch('https://www.googleapis.com/drive/v3/files', {
 				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					name: folderName || 'Nowy Folder',
+					name: folderName,
 					mimeType: 'application/vnd.google-apps.folder',
 					parents: ['168wNbxGIF7sf9rDcegK9zO1e2G94ncqL'],
 				}),
 			})
+			if (!response.ok) throw new Error(`Błąd tworzenia folderu: ${await response.text()}`)
 			const folderData = await response.json()
 			const mainFolderId = folderData.id
 
-			// Tworzenie folderu "Zdjęcia"
 			response = await fetch('https://www.googleapis.com/drive/v3/files', {
 				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: 'Zdjęcia',
 					mimeType: 'application/vnd.google-apps.folder',
 					parents: [mainFolderId],
 				}),
 			})
+			if (!response.ok) throw new Error(`Błąd tworzenia folderu Zdjęcia: ${await response.text()}`)
 			const photosFolderData = await response.json()
 			const photosFolderId = photosFolderData.id
 
-			// Kopiowanie szablonu
 			response = await fetch(`https://www.googleapis.com/drive/v3/files/${selectedTemplate.fileId}/copy`, {
 				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					name: `${selectedTemplate.name} - Copy`,
-					parents: [mainFolderId],
-				}),
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: `${folderName} - Arkusz Audytu`, parents: [mainFolderId] }),
 			})
-
-			// Check response status
-			if (!response.ok) {
-				const errorText = await response.text()
-				throw new Error(`Failed to copy template. Status: ${response.status}, Response: ${errorText}`)
-			}
-
+			if (!response.ok) throw new Error(`Błąd kopiowania szablonu: ${await response.text()}`)
 			const copiedTemplateData = await response.json()
-
-			// Log the full response for debugging
-			console.log('Copied Template Response:', copiedTemplateData)
-
-			// Ensure copiedTemplateData contains the expected id
-			if (!copiedTemplateData.id) {
-				throw new Error('Copied template ID is missing in the response')
-			}
+			if (!copiedTemplateData.id) throw new Error('Brak ID skopiowanego szablonu w odpowiedzi.')
 
 			const copiedTemplateId = copiedTemplateData.id
-
-			setIsProcessing(false)
 			setFolderId(mainFolderId)
-
-			console.log({ photosFolderId, copiedTemplateId }, selectedTemplate.text_id, selectedTemplate.id)
-			storeData(photosFolderId, copiedTemplateId, selectedTemplate.text_id, selectedTemplate.id, navigation)
-		} catch (error) {
+			storeData(photosFolderId, copiedTemplateId, selectedTemplate.text_id, selectedTemplate.id)
+		} catch (err) {
+			console.error('Błąd podczas tworzenia folderu i kopiowania szablonu', err)
+			setError(err.message)
+		} finally {
 			setIsProcessing(false)
-			console.error('Failed to create folder and copy template', error)
-			setError(error.message)
 		}
+	}
+
+	const handleSelectTemplate = template => {
+		setSelectedTemplate(template)
+		setModalVisible(false)
 	}
 
 	return (
 		<Provider>
-			<View style={styles.container}>
-				<ScrollView contentContainerStyle={styles.scrollViewContent}>
-					<Text style={styles.title}>Wybierz szablon:</Text>
-					<Menu
-						visible={visible}
-						onDismiss={closeMenu}
-						anchor={
-							<PaperButton onPress={openMenu} mode='outlined' style={styles.menuButton}>
-								{selectedTemplate ? selectedTemplate.name : 'Wybierz szablon'}
-							</PaperButton>
-						}>
-						{templates.map(template => (
-							<Menu.Item
-								key={template.id}
-								onPress={() => {
-									setSelectedTemplate(template)
-									closeMenu()
-								}}
-								title={template.name}
-							/>
-						))}
-					</Menu>
-					<TextInput
-						label='Nazwa Folderu'
-						value={folderName}
-						onChangeText={text => setFolderName(text)}
-						mode='outlined'
-						style={styles.input}
-					/>
-					<PaperButton
-						mode='contained'
+			<Stack.Screen
+				options={{
+					headerTitle: 'Szablon',
+					headerTitleAlign: 'center',
+					headerStyle: { backgroundColor: '#F9FAFB' },
+					headerShadowVisible: false,
+				}}
+			/>
+			<SafeAreaView className='flex-1 bg-gray-50'>
+				<ScrollView contentContainerClassName='p-5' keyboardShouldPersistTaps='handled'>
+					<View className='mb-8'>
+						<Text className='text-3xl font-bold text-gray-900'>Nowy Audyt</Text>
+						<Text className='text-base text-gray-600 mt-1'>Stwórz folder i skopiuj szablon na Dysk Google.</Text>
+					</View>
+
+					{/* Krok 1 */}
+					<View className='mb-6'>
+						<Text className='text-lg font-bold text-gray-700 mb-2'>Krok 1: Wybierz szablon</Text>
+						<TouchableOpacity
+							onPress={() => setModalVisible(true)}
+							className='flex-row items-center justify-between p-4 bg-white border border-gray-300 rounded-lg shadow-sm'>
+							<Text className={`text-base ${selectedTemplate ? 'text-gray-900' : 'text-gray-500'}`}>
+								{selectedTemplate ? selectedTemplate.name : 'Wybierz z listy'}
+							</Text>
+							<Feather name='chevron-down' size={20} color='#6B7280' />
+						</TouchableOpacity>
+					</View>
+
+					{/* Krok 2 */}
+					<View className='mb-8'>
+						<Text className='text-lg font-bold text-gray-700 mb-2'>Krok 2: Podaj nazwę audytu</Text>
+						<TextInput
+							value={folderName}
+							onChangeText={text => setFolderName(text)}
+							mode='outlined'
+							className='bg-white border rounded-lg shadow-sm'
+							theme={{ colors: { primary: '#3B82F6', background: 'white' } }}
+						/>
+					</View>
+
+					{/* Przycisk akcji */}
+					<TouchableOpacity
 						onPress={createFolderAndCopyTemplate}
 						disabled={!selectedTemplate || !folderName || isProcessing}
-						loading={isProcessing}
-						style={styles.button}>
-						Stwórz folder i skopiuj szablon
-					</PaperButton>
-					{folderId && <Text style={styles.successMessage}>Folder utworzony! ID: {folderId}</Text>}
-					{error && <Text style={styles.errorMessage}>Error: {error}</Text>}
+						className={`py-4 rounded-lg flex-row items-center justify-center shadow-lg ${
+							!selectedTemplate || !folderName || isProcessing ? 'bg-gray-400' : 'bg-blue-600 active:bg-blue-700'
+						}`}>
+						{isProcessing ? (
+							<ActivityIndicator color='white' />
+						) : (
+							<>
+								<Feather name='folder-plus' size={20} color='white' />
+								<Text className='text-white text-lg font-bold ml-3'>Stwórz folder i skopiuj szablon</Text>
+							</>
+						)}
+					</TouchableOpacity>
+
+					{/* Komunikaty o statusie */}
+					<View className='mt-6'>
+						{folderId && (
+							<View className='bg-green-100 border border-green-300 p-4 rounded-lg flex-row items-center'>
+								<Feather name='check-circle' size={24} color='#16A34A' />
+								<Text className='text-green-800 ml-3 flex-1'>Folder utworzony pomyślnie!</Text>
+							</View>
+						)}
+						{error && (
+							<View className='bg-red-100 border border-red-300 p-4 rounded-lg flex-row items-center'>
+								<Feather name='x-circle' size={24} color='#DC2626' />
+								<Text className='text-red-800 ml-3 flex-1'>Błąd: {error}</Text>
+							</View>
+						)}
+					</View>
 				</ScrollView>
-			</View>
+			</SafeAreaView>
+
+			{/* Modal do wyboru szablonu */}
+			<Modal
+				transparent={true}
+				animationType='fade'
+				visible={modalVisible}
+				onRequestClose={() => setModalVisible(false)}>
+				<View className='flex-1 justify-center items-center bg-black/60 px-5'>
+					<View className='bg-white rounded-2xl w-full max-w-sm shadow-xl'>
+						<Text className='text-xl font-bold text-gray-800 p-5 border-b border-gray-200'>Wybierz szablon</Text>
+
+						<View className='py-2'>
+							{templates.map((template, index) => (
+								<TouchableOpacity
+									key={template.id}
+									onPress={() => handleSelectTemplate(template)}
+									className={`p-4 active:bg-gray-100 ${index !== templates.length - 1 ? 'border-b border-gray-100' : ''}`}>
+									<Text className='text-base text-gray-700'>{template.name}</Text>
+								</TouchableOpacity>
+							))}
+						</View>
+
+						<TouchableOpacity
+							onPress={() => setModalVisible(false)}
+							className='p-5 bg-gray-50 active:bg-gray-200 rounded-b-2xl border-t border-gray-200'>
+							<Text className='text-base text-blue-600 font-semibold text-center'>Anuluj</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</Modal>
 		</Provider>
 	)
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		padding: 20,
-	},
-	scrollViewContent: {
-		justifyContent: 'flex-start',
-		alignItems: 'stretch',
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		marginBottom: 20,
-	},
-	menuButton: {
-		marginBottom: 20,
-	},
-	input: {
-		marginBottom: 20,
-		backgroundColor: 'white',
-	},
-	button: {
-		marginBottom: 20,
-	},
-	successMessage: {
-		color: 'green',
-		marginTop: 10,
-	},
-	errorMessage: {
-		color: 'red',
-		marginTop: 10,
-	},
-})
 
 export default TemplateManagerScreen

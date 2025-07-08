@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, Image, FlatList, TouchableOpacity } from 'react-native'
-import { useIsFocused, useNavigation } from '@react-navigation/native'
-import styles from './popularjobs.style'
-import { SIZES } from '../../../constants'
+import React, { useEffect, useState, useCallback } from 'react'
+import { View, Text, Image, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native' // << ZMIANA: dodano ActivityIndicator
+
+import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Feather } from '@expo/vector-icons'
+import { router } from 'expo-router'
 
 const retrieveId = async () => {
 	try {
@@ -18,10 +19,10 @@ const retrieveId = async () => {
 }
 
 const Popularjobs = () => {
-	const navigation = useNavigation()
-	const isFocused = useIsFocused()
 	const [currentId, setCurrentId] = useState(null)
-	const [data, setData] = useState([{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') }])
+	const [templateData, setTemplateData] = useState(null)
+	const [categoriesData, setCategoriesData] = useState([])
+	const [isLoading, setIsLoading] = useState(true)
 
 	const data_template = [{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') }]
 
@@ -70,49 +71,99 @@ const Popularjobs = () => {
 		{ id: 7, title: '7.STANOWISKO OBSŁUGI KLIENTA', icon: require('../../../assets/images/elevator.jpg') },
 	]
 
-	useEffect(() => {
-		const fetchId = async () => {
-			const id_storage = await retrieveId()
-			if (id_storage) {
-				setCurrentId(id_storage)
-				console.log('Current ID:', id_storage)
-				if (id_storage === '4') {
-					setData(data_knn)
-				} else if (id_storage === '2') {
-					setData(data_klatki)
+	useFocusEffect(
+		React.useCallback(() => {
+			const fetchId = async () => {
+				// Nie ustawiamy już isLoading na true na początku,
+				// ponieważ dane mogą być już wyświetlane.
+				// Loader będzie kontrolowany przez stan początkowy.
+				const id_storage = await retrieveId()
+				let sourceData
+
+				if (id_storage) {
+					setCurrentId(id_storage)
+					if (id_storage === '4') sourceData = data_knn
+					else if (id_storage === '2') sourceData = data_klatki
+					else sourceData = data_default
 				} else {
-					setData(data_default)
+					sourceData = data_template
 				}
-			} else {
-				setData(data_template)
+
+				setTemplateData(sourceData[0])
+				setCategoriesData(sourceData.slice(1))
+
+				// Wyłączamy loader tylko wtedy, gdy był aktywny (czyli przy pierwszym ładowaniu)
+				if (isLoading) {
+					setIsLoading(false)
+				}
 			}
-		}
 
-		if (isFocused) {
 			fetchId()
-		}
-	}, [isFocused])
+		}, []) // Pusta tablica jest tu celowa, aby funkcja stworzyła się raz.
+	)
 
-	const handleCardPress = async (id, title) => {
+	const handleCardPress = (id, title) => {
+		const params = { id, title }
 		if (id === 0) {
-			navigation.navigate(`card-details/Template`, { id: id, title: title })
+			router.push({ pathname: '/card-details/Template', params })
 		} else {
-			navigation.navigate(`card-details/DetailScreen`, { id: id, title: title })
+			router.push({ pathname: '/card-details/DetailScreen', params })
 		}
 	}
 
-	const renderCard = ({ item }) => (
-		<View style={[styles.cardContainer, { marginBottom: SIZES.large }]}>
-			<TouchableOpacity onPress={() => handleCardPress(item.id, item.title)}>
-				<Image source={item.icon} style={styles.icon} />
-				<Text style={styles.headerTitle}>{item.title}</Text>
-			</TouchableOpacity>
-		</View>
+	const renderCategoryCard = ({ item }) => (
+		<TouchableOpacity
+			onPress={() => handleCardPress(item.id, item.title)}
+			className='bg-white rounded-2xl shadow-sm overflow-hidden mb-4 active:opacity-80 w-[48%]'>
+			<Image source={item.icon} className='w-full h-28' resizeMode='cover' />
+			<View className='p-3 justify-center' style={{ minHeight: 70 }}>
+				<Text className='text-sm font-semibold text-gray-700 leading-tight text-center'>{item.title}</Text>
+			</View>
+		</TouchableOpacity>
 	)
 
+	if (isLoading) {
+		return (
+			<View className='flex-1 justify-center items-center min-h-[400px]'>
+				<ActivityIndicator size='large' color='#3B82F6' />
+				<Text className='mt-3 text-base text-gray-500'>Wczytywanie kategorii...</Text>
+			</View>
+		)
+	}
+
 	return (
-		<View style={{ marginBottom: 150 }}>
-			<FlatList data={data} renderItem={renderCard} keyExtractor={item => item.id.toString()} />
+		<View className='flex-1 mt-2 px-4'>
+			{templateData && (
+				<View className='mb-6 items-center'>
+					<TouchableOpacity
+						onPress={() => handleCardPress(templateData.id, templateData.title)}
+						className='bg-white rounded-2xl shadow-md overflow-hidden active:opacity-80 w-full max-w-xs'>
+						<Image source={templateData.icon} className='w-full h-36' resizeMode='cover' />
+						<View className='p-4'>
+							<Text className='text-lg font-bold text-slate-800 text-center'>{templateData.title}</Text>
+						</View>
+					</TouchableOpacity>
+				</View>
+			)}
+
+			{categoriesData.length > 0 && (
+				<>
+					<View className='mb-4 flex-row items-center'>
+						<Feather name='grid' size={22} color='#4A5568' />
+						<Text className='text-xl font-bold text-gray-800 ml-2'>Wybierz kategorię</Text>
+					</View>
+
+					<FlatList
+						data={categoriesData}
+						renderItem={renderCategoryCard}
+						keyExtractor={item => item.id.toString()}
+						numColumns={2}
+						showsVerticalScrollIndicator={false}
+						contentContainerClassName='pb-24'
+						columnWrapperClassName='justify-between'
+					/>
+				</>
+			)}
 		</View>
 	)
 }

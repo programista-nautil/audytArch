@@ -1,27 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, Image, FlatList, StyleSheet, Alert, Linking } from 'react-native'
+import { View, Text, TouchableOpacity, Linking, Alert } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import Constants from 'expo-constants'
-
-import styles from './welcome.style'
-import { icons, SIZES } from '../../../constants'
-import { Button } from 'react-native-paper'
-const jobsTypes = []
-
-const retrieveData = async () => {
-	try {
-		const photosFolderId = await AsyncStorage.getItem('@PhotosFolderId')
-		const copiedTemplateId = await AsyncStorage.getItem('@CopiedTemplateId')
-		const textId = await AsyncStorage.getItem('@SelectedTextId')
-		if (photosFolderId !== null && copiedTemplateId !== null && textId !== null) {
-			// Use the retrieved data as needed
-			return { photosFolderId, copiedTemplateId, textId }
-		}
-		console.log({ id, title })
-	} catch (error) {
-		console.error('Failed to retrieve the data from storage', error)
-	}
-}
+import { Feather } from '@expo/vector-icons' // Używamy ikon dla lepszego UI
 
 const Welcome = () => {
 	const [templateInfo, setTemplateInfo] = useState(null)
@@ -34,11 +14,9 @@ const Welcome = () => {
 				const link = await AsyncStorage.getItem('@TemplateLink')
 
 				if (id && creationDate && link) {
-					setTemplateInfo({
-						id,
-						creationDate,
-						link,
-					})
+					const templateData = { id, creationDate, link }
+					setTemplateInfo(templateData)
+					checkTemplateDate(templateData)
 				}
 			} catch (error) {
 				console.error('Failed to fetch template info', error)
@@ -48,10 +26,10 @@ const Welcome = () => {
 		fetchTemplateInfo()
 	}, [])
 
-	const checkTemplateDate = () => {
-		if (templateInfo) {
+	const checkTemplateDate = templateData => {
+		if (templateData) {
 			const today = new Date().toISOString().split('T')[0]
-			const templateDate = new Date(templateInfo.creationDate).toISOString().split('T')[0]
+			const templateDate = new Date(templateData.creationDate).toISOString().split('T')[0]
 
 			if (templateDate !== today) {
 				Alert.alert('Uwaga', 'Proszę sprawdzić, czy wybrany szablon jest poprawny.')
@@ -59,31 +37,43 @@ const Welcome = () => {
 		}
 	}
 
-	return (
-		<View style={styles.container}>
-			{templateInfo ? (
-				<>
-					<Text style={styles.text}>Szablon: {templateInfo.id}</Text>
-					<Text style={styles.text}>
-						Data utworzenia: {new Date(templateInfo.creationDate).toLocaleDateString('pl-PL')}
-					</Text>
-					<Text style={styles.text}>
-						<Text>Link do szablonu: </Text>
-						<Text
-							style={styles.link}
-							onPress={() => {
-								Linking.openURL(templateInfo.link)
-							}}>
-							OTWÓRZ
-						</Text>
-					</Text>
-					{checkTemplateDate()}
-				</>
+	const InfoRow = ({ label, value, isLink = false, url = '' }) => (
+		<View className='flex-row justify-between items-center mb-2'>
+			<Text className='text-gray-600'>{label}</Text>
+			{isLink ? (
+				<TouchableOpacity onPress={() => Linking.openURL(url)}>
+					<Text className='text-blue-600 font-semibold underline'>Otwórz Link</Text>
+				</TouchableOpacity>
 			) : (
-				<Text style={styles.text}>Nie wybrano szablonu.</Text>
+				<Text className='font-semibold text-gray-800'>{value}</Text>
 			)}
-			{/* <Text style={styles.text}>Wersja aplikacji: {Constants.expoConfig?.version || 'Nieznana wersja'}</Text> */}
-			<Text style={styles.text}>Wersja aplikacji: 16.4</Text>
+		</View>
+	)
+
+	return (
+		<View className='p-4'>
+			<View className='bg-white rounded-xl p-5 shadow-lg'>
+				<View className='flex-row items-center mb-4'>
+					<Feather name='info' size={24} color='#4A5568' />
+					<Text className='text-xl font-bold text-gray-800 ml-3'>Informacje o szablonie</Text>
+				</View>
+
+				<View className='h-px bg-gray-200 mb-4' />
+
+				{templateInfo ? (
+					<>
+						<InfoRow label='Nazwa szablonu:' value={templateInfo.id} />
+						<InfoRow label='Data utworzenia:' value={new Date(templateInfo.creationDate).toLocaleDateString('pl-PL')} />
+						<InfoRow label='Link do arkusza:' isLink={true} url={templateInfo.link} />
+					</>
+				) : (
+					<Text className='text-gray-500 text-center py-4'>Nie wybrano szablonu.</Text>
+				)}
+
+				<View className='h-px bg-gray-200 mt-4' />
+
+				<Text className='text-xs text-gray-400 text-center mt-4'>Wersja aplikacji: 17.0</Text>
+			</View>
 		</View>
 	)
 }
