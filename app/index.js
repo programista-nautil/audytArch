@@ -21,21 +21,20 @@ const HomeScreen = () => {
               zagnieżdżoną wirtualną listę z komponentu Popularjobs.
             */}
 			<FlatList
-				// Używamy komponentu Welcome jako statycznego nagłówka listy
-				ListHeaderComponent={
-					<View className='p-4'>
+				// Jeśli planujesz dodać w przyszłości główną, pionową listę
+				// (np. "Oferty w pobliżu"), jej dane trafią tutaj.
+				// Na razie zostawiamy pustą tablicę.
+				data={[]}
+				keyExtractor={item => `main-item-${item}`}
+				renderItem={null}
+				showsVerticalScrollIndicator={false}
+				// Wszystkie komponenty, które były w ScrollView, umieszczamy tutaj
+				ListHeaderComponent={() => (
+					<View className='flex-1 p-4'>
 						<Welcome />
-					</View>
-				}
-				// Popularjobs będzie renderowany jako element listy
-				data={[{ key: 'popularjobs' }]} // Potrzebujemy tablicy z przynajmniej jednym elementem
-				renderItem={() => (
-					<View className='px-4'>
 						<Popularjobs />
 					</View>
 				)}
-				keyExtractor={item => item.key}
-				showsVerticalScrollIndicator={false}
 			/>
 		</SafeAreaView>
 	)

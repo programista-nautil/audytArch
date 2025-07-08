@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
 	ScrollView,
 	Text,
@@ -70,20 +70,6 @@ const DetailScreen = () => {
 			fetchId()
 		}
 	}, [isFocused])
-
-	navigation.setOptions({
-		headerTitle: title,
-		headerTitleStyle: {
-			fontSize: 20,
-			fontWeight: 'bold',
-			color: '#000',
-		},
-		headerStyle: {
-			backgroundColor: '#fff',
-			height: 100,
-		},
-		headerTintColor: '#000',
-	})
 
 	const SHEET_ID = title
 
@@ -200,6 +186,18 @@ const DetailScreen = () => {
 
 	useEffect(() => {
 		navigation.setOptions({
+			headerTitle: title,
+			headerTitleAlign: 'center',
+			headerTitleStyle: {
+				fontSize: 20,
+				fontWeight: 'bold',
+				color: '#000',
+			},
+			headerStyle: {
+				backgroundColor: '#fff',
+				height: 100,
+			},
+			headerTintColor: '#000',
 			headerLeft: () => (
 				<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 					<FontAwesome5
@@ -211,25 +209,17 @@ const DetailScreen = () => {
 								'Potwierdzenie wyjścia',
 								'Czy na pewno chcesz wrócić do menu głównego? Stracisz wszystkie zaznaczone opcje i przyciski.',
 								[
-									{
-										text: 'Nie',
-										style: 'cancel',
-									},
-									{
-										text: 'Tak',
-										onPress: () => navigation.goBack(), // Wróć do poprzedniego ekranu
-									},
+									{ text: 'Nie', style: 'cancel' },
+									{ text: 'Tak', onPress: () => navigation.goBack() },
 								]
 							)
 						}}
 					/>
-					{/* Dodaj pusty <Text> komponent z paddingiem, aby przesunąć ikonę */}
 					<Text style={{ paddingRight: 10 }}></Text>
 				</View>
 			),
-			headerTitleAlign: 'center',
 		})
-	}, [navigation])
+	}, [navigation, title])
 
 	useEffect(() => {
 		const backAction = () => {
