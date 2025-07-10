@@ -32,6 +32,12 @@ const templates = [
 		fileId: '1zUA4ynCygVzB6g-VKffDyyHUKTesuaHEDuNDVvlj7w0',
 		text_id: '1FLeRAc3wsKJinE86nitw1SMpU643jN_RScEE0KGCNq8',
 	},
+	{
+		id: '5',
+		name: 'Basen',
+		fileId: '1rCygnhn_WTSQudcPeUuQUE9wF5qKfIoQoFnJB8-MKXg',
+		text_id: '1sXtQLxCLkhHrAQmA4Z7zJxXFE5CY1-Pbx9a4UnIIZIo',
+	},
 ]
 
 const storeData = async (photosFolderId, copiedTemplateId, textId, id) => {

@@ -71,6 +71,27 @@ const Popularjobs = () => {
 		{ id: 7, title: '7.STANOWISKO OBSŁUGI KLIENTA', icon: require('../../../assets/images/elevator.jpg') },
 	]
 
+	const data_basen = [
+		{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') },
+		{ id: 1, title: '1.OTOCZENIE ZEWNĘTRZNE', icon: require('../../../assets/images/zew.png') },
+		{ id: 2, title: '2.PARKING DLA OZN', icon: require('../../../assets/images/parking.jpg') },
+		{ id: 3, title: '3.STREFA WEJŚCIA', icon: require('../../../assets/images/strefaWej.jpg') },
+		{ id: 4, title: '4.SCHODY ZEWNĘTRZNE', icon: require('../../../assets/images/outdoor_stairs.jpg') },
+		{ id: 5, title: '5.POCHYLNIE', icon: require('../../../assets/images/ramp.jpg') },
+		{ id: 6, title: '6.DOMOFON', icon: require('../../../assets/images/domofon.jpg') },
+		{ id: 7, title: '7.RECEPCJA', icon: require('../../../assets/images/reception.jpg') },
+		{ id: 8, title: '8.KORYTARZE', icon: require('../../../assets/images/corridors.jpg') },
+		{ id: 9, title: '9.KOMUNIKACJA PIONOWA', icon: require('../../../assets/images/stairs.jpg') },
+		{ id: 10, title: '10.DZWIGI OSOBOWE PLATFORMY', icon: require('../../../assets/images/elevator.jpg') },
+		{ id: 11, title: '11.WC', icon: require('../../../assets/images/wc.jpg') },
+		{ id: 12, title: '12.KOMFORTKA', icon: require('../../../assets/images/parentChildren.jpg') },
+		{ id: 13, title: '13.DOSTĘPNOŚĆ STREFY BASENOWEJ', icon: require('../../../assets/images/otherRooms.jpg') },
+		{ id: 14, title: '14.OCHRONA PRZECIWPOŻAROWA', icon: require('../../../assets/images/fireproof.jpg') },
+		{ id: 15, title: '15.INFORMACJE', icon: require('../../../assets/images/information.jpg') },
+		{ id: 16, title: '16.MATERIAŁY WYKOŃCZENIOWE', icon: require('../../../assets/images/materialywyk.jpg') },
+		{ id: 17, title: 'KWESTIONARIUSZ GUS', icon: require('../../../assets/images/qa.png') },
+	]
+
 	useFocusEffect(
 		React.useCallback(() => {
 			const fetchId = async () => {
@@ -84,6 +105,7 @@ const Popularjobs = () => {
 					setCurrentId(id_storage)
 					if (id_storage === '4') sourceData = data_knn
 					else if (id_storage === '2') sourceData = data_klatki
+					else if (id_storage === '5') sourceData = data_basen
 					else sourceData = data_default
 				} else {
 					sourceData = data_template
