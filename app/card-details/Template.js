@@ -38,6 +38,12 @@ const templates = [
 		fileId: '1rCygnhn_WTSQudcPeUuQUE9wF5qKfIoQoFnJB8-MKXg',
 		text_id: '1sXtQLxCLkhHrAQmA4Z7zJxXFE5CY1-Pbx9a4UnIIZIo',
 	},
+	{
+		id: '6',
+		name: 'Hala Sportowa',
+		fileId: '1DFQ5rZKFYEcgCwqdGYQYJFT9MYEAsmwpNd-btY7kz1Y',
+		text_id: '1_vmxeAVuPD3daYO9t2ii4pWn2Z3CiENSMGpkAsEXhJc',
+	},
 ]
 
 const storeData = async (photosFolderId, copiedTemplateId, textId, id) => {
