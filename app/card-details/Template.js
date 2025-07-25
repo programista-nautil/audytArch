@@ -44,6 +44,30 @@ const templates = [
 		fileId: '1DFQ5rZKFYEcgCwqdGYQYJFT9MYEAsmwpNd-btY7kz1Y',
 		text_id: '1_vmxeAVuPD3daYO9t2ii4pWn2Z3CiENSMGpkAsEXhJc',
 	},
+	{
+		id: '7',
+		name: 'Akademik',
+		fileId: '1vIBiCQcnAzeUSISUJa2fTq9BWRNSa7ToQGNHxd97mHk',
+		text_id: '17uLWNie95RFGxmTbYEZjF6Ro2I-wzMAVT4PA9UNZSf0',
+	},
+	{
+		id: '8',
+		name: 'Budynek Administracyjny',
+		fileId: '1ZdCXkoP1nHofsvPfbBgHTpQ6UVhr30W19Pv6a3yxIpE',
+		text_id: '1YRxSYHiEbVozvVWh_jaT05aX-mvJ1hHT69i0zr6elME',
+	},
+	{
+		id: '9',
+		name: 'Budynek Dydaktyczny',
+		fileId: '1Qu74MFnbROTQDuH5ABRiRB0MiUhpwAbo-su-muZpN2s',
+		text_id: '13NGkwnm9ZeRov_iqVMkSs6EdI-acLTx68mCU2d7cPGg',
+	},
+	{
+		id: '10',
+		name: 'Biblioteka',
+		fileId: '1MszR0MKBAfOcyzfmZcX1cB7XiOaJH2OIUjpiP9EjUCY',
+		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8',
+	},
 ]
 
 const storeData = async (photosFolderId, copiedTemplateId, textId, id) => {
