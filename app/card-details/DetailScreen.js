@@ -1009,7 +1009,7 @@ const DetailScreen = () => {
 		<SafeAreaView className='flex-1 bg-gray-100'>
 			<Stack.Screen options={{ headerTitle: title, headerTitleAlign: 'center' }} />
 
-			<ScrollView contentContainerClassName='pb-28'>
+			<ScrollView>
 				<View className='p-2'>
 					{elements.map((element, index) => (
 						<View key={index} className='bg-white my-2 rounded-xl shadow-sm overflow-hidden'>
@@ -1119,24 +1119,24 @@ const DetailScreen = () => {
 						</View>
 					))}
 				</View>
-			</ScrollView>
 
-			{/* Przycisk Wyślij - ostylowany, logika ta sama */}
-			<View className='absolute bottom-5 right-5 left-5'>
-				<TouchableOpacity
-					onPress={handleSubmit}
-					disabled={isSubmitting}
-					className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
-					{isSubmitting ? (
-						<ActivityIndicator color='white' />
-					) : (
-						<>
-							<Feather name='send' size={20} color='white' />
-							<Text className='text-white text-lg font-bold ml-3'>WYŚLIJ</Text>
-						</>
-					)}
-				</TouchableOpacity>
-			</View>
+				{/* Przycisk Wyślij - normalny przycisk na dole */}
+				<View className='p-5'>
+					<TouchableOpacity
+						onPress={handleSubmit}
+						disabled={isSubmitting}
+						className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
+						{isSubmitting ? (
+							<ActivityIndicator color='white' />
+						) : (
+							<>
+								<Feather name='send' size={20} color='white' />
+								<Text className='text-white text-lg font-bold ml-3'>WYŚLIJ</Text>
+							</>
+						)}
+					</TouchableOpacity>
+				</View>
+			</ScrollView>
 
 			{/* Modal z aparatem - UI jak wcześniej, logika podpięta pod oryginał */}
 			<Modal visible={isActive} onRequestClose={() => setIsActive(false)} animationType='slide'>

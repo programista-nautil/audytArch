@@ -7,6 +7,8 @@ import SpeechRecognitionService from '../../../services/SpeechRecognitionService
 const CommentInput = ({ value, onChangeText, placeholder }) => {
 	const [isListening, setIsListening] = useState(false)
 	const [error, setError] = useState('')
+
+	const textInputRef = useRef(null)
 	const initialTextRef = useRef('')
 
 	useEffect(() => {
@@ -24,6 +26,8 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 	const onSpeechEnd = () => {
 		console.log('Zakończono nasłuchiwanie.')
 		setIsListening(false)
+
+		textInputRef.current?.focus()
 	}
 
 	const onSpeechError = e => {
@@ -71,7 +75,8 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 	return (
 		<View style={styles.container}>
 			<TextInput
-				style={styles.input}
+				ref={textInputRef}
+				style={[styles.input, isListening && styles.listeningInput]}
 				value={value}
 				onChangeText={onChangeText}
 				placeholder={placeholder || 'Wpisz komentarz...'}
@@ -79,7 +84,7 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 			/>
 			<TouchableOpacity onPress={handleMicPress} style={styles.micButton}>
 				{isListening ? (
-					<ActivityIndicator size='small' color='#c40000' />
+					<MaterialIcons name='pause-circle-filled' size={24} color='#c40000' />
 				) : (
 					<MaterialIcons name='mic' size={24} color='#555' />
 				)}
@@ -99,9 +104,15 @@ const styles = StyleSheet.create({
 		borderColor: '#ccc',
 		borderRadius: 8,
 		padding: 12,
-		paddingRight: 50, // Zostaw miejsce na ikonę mikrofonu
+		paddingRight: 50,
 		minHeight: 80,
 		textAlignVertical: 'top',
+		transition: 'border-color 0.3s',
+	},
+
+	listeningInput: {
+		borderColor: '#3B82F6',
+		borderWidth: 2,
 	},
 	micButton: {
 		position: 'absolute',
