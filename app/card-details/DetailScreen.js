@@ -25,6 +25,7 @@ import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { checkInternet } from '../../lib/checkInternet'
 import { Stack, router } from 'expo-router'
+import CommentInput from '../../components/home/common/CommentInput'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -1047,13 +1048,10 @@ const DetailScreen = () => {
 											</View>
 
 											{/* Pole na uwagi - ostylowane, logika ta sama */}
-											<NativeTextInput
-												placeholder='Dodaj uwagi...'
+											<CommentInput
+												placeholder='Dodaj uwagi lub użyj mikrofonu...'
 												value={comments[index]?.[contentIndex] || ''}
 												onChangeText={text => handleCommentChange(index, contentIndex, text)}
-												className='bg-white border border-gray-300 rounded-lg p-3 text-base h-20'
-												textAlignVertical='top'
-												multiline
 											/>
 										</View>
 									))}
