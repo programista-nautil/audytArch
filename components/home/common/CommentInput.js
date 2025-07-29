@@ -7,6 +7,7 @@ import SpeechRecognitionService from '../../../services/SpeechRecognitionService
 const CommentInput = ({ value, onChangeText, placeholder }) => {
 	const [isListening, setIsListening] = useState(false)
 	const [error, setError] = useState('')
+	const [isProcessing, setIsProcessing] = useState(false)
 
 	const textInputRef = useRef(null)
 	const initialTextRef = useRef('')
@@ -21,19 +22,22 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 		console.log('Rozpoczęto nasłuchiwanie...')
 		setIsListening(true)
 		setError('')
+		setIsProcessing(false)
 	}
 
 	const onSpeechEnd = () => {
-		console.log('Zakończono nasłuchiwanie.')
+		console.log('Zakończono nasłuchiwanie, przetwarzanie...')
 		setIsListening(false)
 
-		textInputRef.current?.focus()
+		setIsProcessing(true)
 	}
 
 	const onSpeechError = e => {
 		console.error('Błąd rozpoznawania mowy:', e)
 		setError('Wystąpił błąd lub nic nie powiedziano.')
 		setIsListening(false)
+		// Krok 3: Wyłączamy spinner w przypadku błędu.
+		setIsProcessing(false)
 	}
 
 	const onSpeechResults = e => {
@@ -43,16 +47,9 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 			const newText = initialTextRef.current ? `${initialTextRef.current} ${recognizedText}`.trim() : recognizedText
 			onChangeText(newText)
 		}
-	}
-
-	const onSpeechPartialResults = e => {
-		console.log('Otrzymano wyniki częściowe:', e.value)
-		if (e.value && e.value.length > 0) {
-			const recognizedText = e.value[0]
-			// Aktualizujemy tekst na bieżąco, dodając rozpoznaną frazę do tego, co było na początku.
-			const newText = initialTextRef.current ? `${initialTextRef.current} ${recognizedText}`.trim() : recognizedText
-			onChangeText(newText)
-		}
+		setIsProcessing(false)
+		// Ustawiamy fokus na polu tekstowym po otrzymaniu wyniku
+		textInputRef.current?.focus()
 	}
 
 	const handleMicPress = () => {
@@ -65,7 +62,6 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 			SpeechRecognitionService.startListening('pl-PL', {
 				onStart: onSpeechStart,
 				onResult: onSpeechResults,
-				onPartialResult: onSpeechPartialResults, // <-- Przekazujemy nowy handler
 				onError: onSpeechError,
 				onEnd: onSpeechEnd,
 			})
@@ -81,6 +77,7 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 				onChangeText={onChangeText}
 				placeholder={placeholder || 'Wpisz komentarz...'}
 				multiline
+				editable={!isProcessing}
 			/>
 			<TouchableOpacity onPress={handleMicPress} style={styles.micButton}>
 				{isListening ? (
@@ -89,6 +86,11 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 					<MaterialIcons name='mic' size={24} color='#555' />
 				)}
 			</TouchableOpacity>
+			{isProcessing && (
+				<View style={styles.spinnerOverlay}>
+					<ActivityIndicator size='small' color='#3B82F6' />
+				</View>
+			)}
 			{error ? <Text style={styles.errorText}>{error}</Text> : null}
 		</View>
 	)
@@ -124,6 +126,17 @@ const styles = StyleSheet.create({
 		color: 'red',
 		marginTop: 4,
 		fontSize: 12,
+	},
+	spinnerOverlay: {
+		position: 'absolute',
+		left: 0,
+		right: 0,
+		top: 0,
+		bottom: 0,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(255, 255, 255, 0.7)',
+		borderRadius: 8,
 	},
 })
 

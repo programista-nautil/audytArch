@@ -1,66 +1,105 @@
-import Voice from '@react-native-voice/voice'
+// =========ZMIANA=========
+// Plik: services/SpeechRecognitionService.js
+
+import AudioRecord from 'react-native-audio-record'
+import { GOOGLE_SPEECH_TO_TEXT_API_KEY } from '@env'
+import RNFetchBlob from 'rn-fetch-blob'
+
+const RECORDING_OPTIONS = {
+	sampleRate: 16000,
+	channels: 1,
+	bitsPerSample: 16,
+	audioSource: 6, // VOICE_RECOGNITION
+	wavFile: 'temp_speech.wav',
+}
+
+const API_URL = `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_SPEECH_TO_TEXT_API_KEY}`
 
 class SpeechRecognitionService {
 	constructor() {
-		Voice.destroy().then(Voice.removeAllListeners)
+		this.isListening = false
+		this.callbacks = {}
 	}
 
-	_registerEvents(onStart, onResult, onPartialResult, onError, onEnd) {
-		// <-- DODAJ onPartialResult
-		Voice.onSpeechStart = onStart
-		Voice.onSpeechResults = onResult
-		Voice.onSpeechPartialResults = onPartialResult // <-- DODAJ TĘ LINIĘ
-		Voice.onSpeechError = onError
-		Voice.onSpeechEnd = onEnd
-	}
-
-	_unregisterEvents() {
-		Voice.onSpeechStart = null
-		Voice.onSpeechResults = null
-		Voice.onSpeechPartialResults = null // <-- DODAJ TĘ LINIĘ
-		Voice.onSpeechError = null
-		Voice.onSpeechEnd = null
-	}
-
-	/**
-	 * Rozpoczyna proces nasłuchiwania mowy.
-	 * @param {string} locale - Kod języka, np. 'pl-PL' dla polskiego.
-	 * @param {object} callbacks - Obiekt z funkcjami zwrotnymi { onStart, onResult, onError, onEnd }.
-	 */
 	async startListening(locale = 'pl-PL', callbacks) {
-		this._registerEvents(
-			callbacks.onStart,
-			callbacks.onResult,
-			callbacks.onPartialResult,
-			callbacks.onError,
-			callbacks.onEnd
-		)
+		if (this.isListening) {
+			console.warn('Nasłuchiwanie jest już aktywne.')
+			return
+		}
+
+		this.isListening = true
+		this.callbacks = callbacks
 
 		try {
-			await Voice.start(locale)
-		} catch (e) {
-			console.error('Błąd podczas startu nasłuchiwania:', e)
-			if (callbacks.onError) {
-				callbacks.onError(e)
+			await AudioRecord.init(RECORDING_OPTIONS)
+			AudioRecord.start()
+			console.log('Rozpoczęto nagrywanie...')
+
+			if (this.callbacks.onStart) {
+				this.callbacks.onStart()
 			}
+		} catch (error) {
+			console.error('Błąd podczas startu nasłuchiwania:', error)
+			if (this.callbacks.onError) this.callbacks.onError(error)
+			this.isListening = false
 		}
 	}
 
 	async stopListening() {
+		if (!this.isListening) return
+
+		this.isListening = false
+
 		try {
-			await Voice.stop()
-		} catch (e) {
-			console.error('Błąd podczas zatrzymywania nasłuchiwania:', e)
+			console.log('Zatrzymywanie nagrywania i przetwarzanie...')
+			const audioFilePath = await AudioRecord.stop()
+
+			if (this.callbacks.onEnd) {
+				this.callbacks.onEnd()
+			}
+
+			const base64Audio = await RNFetchBlob.fs.readFile(audioFilePath, 'base64')
+
+			const response = await fetch(API_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					config: {
+						encoding: 'LINEAR16',
+						sampleRateHertz: RECORDING_OPTIONS.sampleRate,
+						languageCode: 'pl-PL',
+						enableAutomaticPunctuation: true,
+					},
+					audio: {
+						content: base64Audio,
+					},
+				}),
+			})
+
+			const responseData = await response.json()
+
+			if (responseData.results && responseData.results.length > 0) {
+				const transcript = responseData.results[0].alternatives[0].transcript
+				console.log('Otrzymano transkrypcję z Google:', transcript)
+				if (this.callbacks.onResult) {
+					this.callbacks.onResult({ value: [transcript] })
+				}
+			} else {
+				console.log('Google nie zwróciło żadnych wyników.', responseData)
+				if (this.callbacks.onError) {
+					this.callbacks.onError({ error: { message: 'Nie rozpoznano mowy.' } })
+				}
+			}
+		} catch (error) {
+			console.error('Błąd podczas zatrzymywania i przetwarzania audio:', error)
+			if (this.callbacks.onError) this.callbacks.onError(error)
 		}
 	}
 
+	// Metoda niszcząca - zatrzymuje nasłuchiwanie, jeśli jest aktywne
 	async destroy() {
-		try {
-			await Voice.destroy()
-		} catch (e) {
-			console.error('Błąd podczas niszczenia instancji Voice:', e)
-		} finally {
-			this._unregisterEvents()
+		if (this.isListening) {
+			this.stopListening()
 		}
 	}
 }
