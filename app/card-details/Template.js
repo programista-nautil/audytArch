@@ -70,18 +70,22 @@ const templates = [
 	},
 ]
 
-const storeData = async (photosFolderId, copiedTemplateId, textId, id) => {
+const storeData = async (photosFolderId, copiedTemplateId, textId, id, templateName, sheetName, mainFolderId) => {
 	try {
 		const creationDate = new Date().toISOString()
-		const templateLink = `https://docs.google.com/spreadsheets/d/${copiedTemplateId}/edit`
+		// Tworzymy link do FOLDERU, a nie do pliku
+		const templateLink = `https://drive.google.com/drive/folders/${mainFolderId}`
 
 		await AsyncStorage.setItem('@Id', id)
 		await AsyncStorage.setItem('@PhotosFolderId', photosFolderId)
 		await AsyncStorage.setItem('@CopiedTemplateId', copiedTemplateId)
 		await AsyncStorage.setItem('@SelectedTextId', textId)
 		await AsyncStorage.setItem('@TemplateCreationDate', creationDate)
-		await AsyncStorage.setItem('@TemplateLink', templateLink)
-		console.log('Data successfully saved')
+		await AsyncStorage.setItem('@TemplateLink', templateLink) // Zapisujemy nowy link
+		await AsyncStorage.setItem('@TemplateKind', templateName || 'Nieokreślony')
+		await AsyncStorage.setItem('@SelectedTextTitle', sheetName || 'Bez nazwy')
+
+		console.log('Data successfully saved with FOLDER link')
 	} catch (error) {
 		console.error('Failed to save the data to the storage', error)
 	}
@@ -160,7 +164,15 @@ const TemplateManagerScreen = () => {
 
 			const copiedTemplateId = copiedTemplateData.id
 			setFolderId(mainFolderId)
-			storeData(photosFolderId, copiedTemplateId, selectedTemplate.text_id, selectedTemplate.id)
+			storeData(
+				photosFolderId,
+				copiedTemplateId,
+				selectedTemplate.text_id,
+				selectedTemplate.id,
+				selectedTemplate.name,
+				folderName,
+				mainFolderId
+			)
 		} catch (err) {
 			console.error('Błąd podczas tworzenia folderu i kopiowania szablonu', err)
 			setError(err.message)
