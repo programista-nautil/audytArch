@@ -1,6 +1,6 @@
 // =========ZMIANA=========
 // Plik: services/SpeechRecognitionService.js
-
+import { PermissionsAndroid, Platform } from 'react-native'
 import AudioRecord from 'react-native-audio-record'
 import { GOOGLE_SPEECH_TO_TEXT_API_KEY } from '@env'
 import RNFetchBlob from 'rn-fetch-blob'
@@ -21,9 +21,40 @@ class SpeechRecognitionService {
 		this.callbacks = {}
 	}
 
+	async requestMicrophonePermission() {
+		if (Platform.OS === 'android') {
+			try {
+				const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
+					title: 'Zgoda na użycie mikrofonu',
+					message: 'Aplikacja potrzebuje dostępu do Twojego mikrofonu, aby włączyć funkcję dyktowania.',
+					buttonPositive: 'Zezwól',
+					buttonNegative: 'Odmów',
+				})
+				if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+					console.log('Masz uprawnienia do mikrofonu.')
+					return true
+				} else {
+					console.log('Odmówiono uprawnień do mikrofonu.')
+					return false
+				}
+			} catch (err) {
+				console.warn(err)
+				return false
+			}
+		}
+		return true // Domyślnie zwracamy true dla innych platform (np. iOS, jeśli będzie dodany)
+	}
+
 	async startListening(locale = 'pl-PL', callbacks) {
 		if (this.isListening) {
 			console.warn('Nasłuchiwanie jest już aktywne.')
+			return
+		}
+
+		const hasPermission = await this.requestMicrophonePermission()
+		if (!hasPermission) {
+			// Jeśli użytkownik odmówił, informujemy go i kończymy działanie
+			callbacks.onError({ error: { message: 'Brak uprawnień do mikrofonu.' } })
 			return
 		}
 

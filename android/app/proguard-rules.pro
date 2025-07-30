@@ -12,3 +12,13 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+# Reguły dla rn-fetch-blob
+-keep class com.RNFetchBlob.** { *; }
+-keep class com.rnfetchblob.** { *; }
+
+# Reguły dla react-native-audio-record
+-keep class com.github.piasy.rxandroidaudio.** { *; }
+-keep class com.github.piasy.audioprocessor.** { *; }
+
+# Dodatkowe, ogólne reguły dla bibliotek React Native
+-keep class com.facebook.react.** { *; }
