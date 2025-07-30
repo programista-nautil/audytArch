@@ -11,6 +11,7 @@ const RECORDING_OPTIONS = {
 	bitsPerSample: 16,
 	audioSource: 6, // VOICE_RECOGNITION
 	wavFile: 'temp_speech.wav',
+	bufferSize: 8192, // Dodane dla lepszej jakości w produkcji
 }
 
 const API_URL = `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_SPEECH_TO_TEXT_API_KEY}`
@@ -19,6 +20,13 @@ class SpeechRecognitionService {
 	constructor() {
 		this.isListening = false
 		this.callbacks = {}
+
+		// Sprawdź czy klucz API jest dostępny
+		if (!GOOGLE_SPEECH_TO_TEXT_API_KEY) {
+			console.error('UWAGA: Brak klucza API Google Speech-to-Text!')
+		} else {
+			console.log('Klucz API Google Speech-to-Text jest skonfigurowany')
+		}
 	}
 
 	async requestMicrophonePermission() {
@@ -48,6 +56,13 @@ class SpeechRecognitionService {
 	async startListening(locale = 'pl-PL', callbacks) {
 		if (this.isListening) {
 			console.warn('Nasłuchiwanie jest już aktywne.')
+			return
+		}
+
+		// Sprawdź czy klucz API jest dostępny
+		if (!GOOGLE_SPEECH_TO_TEXT_API_KEY) {
+			console.error('Brak klucza API Google Speech-to-Text!')
+			callbacks.onError({ error: { message: 'Błąd konfiguracji - brak klucza API.' } })
 			return
 		}
 
@@ -84,13 +99,47 @@ class SpeechRecognitionService {
 		try {
 			console.log('Zatrzymywanie nagrywania i przetwarzanie...')
 			const audioFilePath = await AudioRecord.stop()
+			console.log('Ścieżka pliku audio:', audioFilePath)
 
 			if (this.callbacks.onEnd) {
 				this.callbacks.onEnd()
 			}
 
-			const base64Audio = await RNFetchBlob.fs.readFile(audioFilePath, 'base64')
+			// Sprawdź czy plik istnieje i czy ma rozmiar
+			const fileExists = await RNFetchBlob.fs.exists(audioFilePath)
+			console.log('Plik audio istnieje:', fileExists)
 
+			if (!fileExists) {
+				console.error('Plik audio nie istnieje!')
+				if (this.callbacks.onError) {
+					this.callbacks.onError({ error: { message: 'Błąd: plik audio nie został utworzony.' } })
+				}
+				return
+			}
+
+			const fileStats = await RNFetchBlob.fs.stat(audioFilePath)
+			console.log('Rozmiar pliku audio:', fileStats.size, 'bajtów')
+
+			if (fileStats.size === 0) {
+				console.error('Plik audio jest pusty!')
+				if (this.callbacks.onError) {
+					this.callbacks.onError({ error: { message: 'Błąd: nie zarejestrowano żadnego dźwięku.' } })
+				}
+				return
+			}
+
+			const base64Audio = await RNFetchBlob.fs.readFile(audioFilePath, 'base64')
+			console.log('Długość base64 audio:', base64Audio.length)
+
+			if (base64Audio.length === 0) {
+				console.error('Base64 audio jest pusty!')
+				if (this.callbacks.onError) {
+					this.callbacks.onError({ error: { message: 'Błąd: nie udało się odczytać pliku audio.' } })
+				}
+				return
+			}
+
+			console.log('Wysyłanie żądania do Google Speech API...')
 			const response = await fetch(API_URL, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -100,6 +149,8 @@ class SpeechRecognitionService {
 						sampleRateHertz: RECORDING_OPTIONS.sampleRate,
 						languageCode: 'pl-PL',
 						enableAutomaticPunctuation: true,
+						maxAlternatives: 1,
+						profanityFilter: false,
 					},
 					audio: {
 						content: base64Audio,
@@ -107,7 +158,20 @@ class SpeechRecognitionService {
 				}),
 			})
 
+			console.log('Status odpowiedzi Google API:', response.status)
+			console.log('Headers odpowiedzi:', response.headers)
+
+			if (!response.ok) {
+				const errorText = await response.text()
+				console.error('Błąd HTTP od Google API:', response.status, errorText)
+				if (this.callbacks.onError) {
+					this.callbacks.onError({ error: { message: `Błąd API: ${response.status} - ${errorText}` } })
+				}
+				return
+			}
+
 			const responseData = await response.json()
+			console.log('Pełna odpowiedź z Google API:', JSON.stringify(responseData, null, 2))
 
 			if (responseData.results && responseData.results.length > 0) {
 				const transcript = responseData.results[0].alternatives[0].transcript
@@ -116,14 +180,90 @@ class SpeechRecognitionService {
 					this.callbacks.onResult({ value: [transcript] })
 				}
 			} else {
-				console.log('Google nie zwróciło żadnych wyników.', responseData)
-				if (this.callbacks.onError) {
-					this.callbacks.onError({ error: { message: 'Nie rozpoznano mowy.' } })
+				console.log('Google nie zwróciło żadnych wyników.')
+				console.log('Szczegóły odpowiedzi:', JSON.stringify(responseData, null, 2))
+
+				// Sprawdź czy to problem z API key
+				if (responseData.error) {
+					console.error('Błąd API:', responseData.error)
+					if (this.callbacks.onError) {
+						this.callbacks.onError({ error: { message: `Błąd API: ${responseData.error.message}` } })
+					}
+				} else {
+					if (this.callbacks.onError) {
+						this.callbacks.onError({ error: { message: 'Nie rozpoznano mowy - spróbuj mówić głośniej i wyraźniej.' } })
+					}
 				}
+			}
+
+			// Czyszczenie pliku tymczasowego
+			try {
+				if (audioFilePath && (await RNFetchBlob.fs.exists(audioFilePath))) {
+					await RNFetchBlob.fs.unlink(audioFilePath)
+					console.log('Usunięto plik tymczasowy:', audioFilePath)
+				}
+			} catch (cleanupError) {
+				console.warn('Nie udało się usunąć pliku tymczasowego:', cleanupError)
 			}
 		} catch (error) {
 			console.error('Błąd podczas zatrzymywania i przetwarzania audio:', error)
-			if (this.callbacks.onError) this.callbacks.onError(error)
+			console.error('Stack trace:', error.stack)
+
+			// Sprawdź typ błędu i dostarcz bardziej szczegółowe informacje
+			let errorMessage = 'Wystąpił nieoczekiwany błąd podczas przetwarzania mowy.'
+
+			if (error.message) {
+				if (error.message.includes('Network')) {
+					errorMessage = 'Błąd połączenia z internetem. Sprawdź połączenie i spróbuj ponownie.'
+				} else if (error.message.includes('timeout')) {
+					errorMessage = 'Przekroczono limit czasu. Spróbuj ponownie.'
+				} else if (error.message.includes('API')) {
+					errorMessage = 'Błąd usługi rozpoznawania mowy. Spróbuj ponownie później.'
+				} else {
+					errorMessage = `Błąd: ${error.message}`
+				}
+			}
+
+			if (this.callbacks.onError) {
+				this.callbacks.onError({ error: { message: errorMessage, originalError: error } })
+			}
+		}
+	}
+
+	// Metoda sprawdzająca dostępność usługi
+	async checkServiceAvailability() {
+		try {
+			if (!GOOGLE_SPEECH_TO_TEXT_API_KEY) {
+				return { available: false, reason: 'Brak klucza API' }
+			}
+
+			// Sprawdź uprawnienia do mikrofonu
+			const hasPermission = await this.requestMicrophonePermission()
+			if (!hasPermission) {
+				return { available: false, reason: 'Brak uprawnień do mikrofonu' }
+			}
+
+			// Sprawdź połączenie z API (prosty test)
+			try {
+				const testResponse = await fetch(
+					`https://speech.googleapis.com/v1/operations?key=${GOOGLE_SPEECH_TO_TEXT_API_KEY}`,
+					{
+						method: 'GET',
+						timeout: 5000,
+					}
+				)
+
+				if (!testResponse.ok && testResponse.status !== 404) {
+					return { available: false, reason: `Błąd API: ${testResponse.status}` }
+				}
+			} catch (networkError) {
+				return { available: false, reason: 'Brak połączenia z internetem' }
+			}
+
+			return { available: true, reason: 'Usługa dostępna' }
+		} catch (error) {
+			console.error('Błąd podczas sprawdzania dostępności usługi:', error)
+			return { available: false, reason: `Błąd sprawdzania: ${error.message}` }
 		}
 	}
 
