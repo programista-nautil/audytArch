@@ -47,7 +47,8 @@ const DetailScreen = () => {
 	const navigation = useNavigation()
 	const isFocused = useIsFocused()
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [isTakingPhoto, setIsTakingPhoto] = useState(false)
+	const [isCapturing, setIsCapturing] = useState(false)
+	const [isUploading, setIsUploading] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 
 	const route = useRoute()
@@ -180,6 +181,7 @@ const DetailScreen = () => {
 	)
 	const [openSections, setOpenSections] = useState({})
 	const [uploadStatuses, setUploadStatuses] = useState(Array(elements.length).fill(null))
+	const [capturedPhoto, setCapturedPhoto] = useState(null)
 
 	useEffect(() => {
 		navigation.setOptions({
@@ -871,16 +873,35 @@ const DetailScreen = () => {
 	useEffect(() => {
 		requestPermission()
 	}, [hasPermission])
-
-	const onTakePicturePressed = async (name, index) => {
-		if (cameraRef.current) {
-			const photo = await cameraRef.current.takePhoto()
-			// Zrób coś z obiektem photo, na przykład zapisz go lub wyświetl
-			uploadPhoto(photo, name, index)
+	const onTakePicturePressed = async () => {
+		if (cameraRef.current && !isCapturing) {
+			setIsCapturing(true) // Włącz spinner na migawce
+			try {
+				const photo = await cameraRef.current.takePhoto()
+				setCapturedPhoto(photo)
+			} catch (error) {
+				console.error('Błąd podczas robienia zdjęcia:', error)
+				Alert.alert('Błąd aparatu', 'Nie udało się zrobić zdjęcia.')
+			} finally {
+				setIsCapturing(false) // Zawsze wyłączaj spinner na migawce po zakończeniu
+			}
 		}
 	}
 
-	//write function to upload photo to google drive
+	const handleUsePhoto = async () => {
+		if (!capturedPhoto) return
+
+		setIsUploading(true) // Włączamy spinner (teraz na ekranie podglądu)
+		await uploadPhoto(capturedPhoto, selectedElementName, selectedElementIndex)
+		setIsUploading(false)
+		// Resetujemy stany po zakończeniu wysyłania/zapisu
+		setCapturedPhoto(null)
+	}
+
+	// NOWA FUNKCJA: Uruchamiana, gdy użytkownik chce powtórzyć zdjęcie
+	const handleRetakePhoto = () => {
+		setCapturedPhoto(null) // Czyścimy stan, co spowoduje powrót do widoku kamery
+	}
 
 	const uploadPhoto = async (photo, name, index) => {
 		try {
@@ -900,7 +921,7 @@ const DetailScreen = () => {
 			)
 			if (result.ok) {
 				updateUploadStatus(index, 'success')
-				setIsTakingPhoto(false)
+
 				setIsActive(false)
 			} else {
 				throw new Error('Failed to upload photo')
@@ -908,7 +929,7 @@ const DetailScreen = () => {
 		} catch (error) {
 			console.error('Error uploading image to Google Drive: ', error)
 			updateUploadStatus(index, 'error')
-			setIsTakingPhoto(false)
+
 			setIsActive(false)
 		}
 	}
@@ -1070,42 +1091,70 @@ const DetailScreen = () => {
 						<Text className='text-white text-xl'>Brak aparatu</Text>
 					</View>
 				) : (
-					<View className='flex-1'>
-						<Camera
-							ref={cameraRef}
-							style={StyleSheet.absoluteFill}
-							device={device}
-							photo={true}
-							isActive={true}
-							onInitialized={() => setIsCameraReady(true)}
-						/>
-						<TouchableOpacity
-							onPress={() => setIsActive(false)}
-							className='absolute top-12 left-5 bg-black/50 p-3 rounded-full'>
-							<Feather name='x' size={24} color='white' />
-						</TouchableOpacity>
-						<View className='absolute bottom-10 w-full items-center'>
-							<TouchableOpacity
-								disabled={isTakingPhoto}
-								onPress={async () => {
-									setIsTakingPhoto(true) // <<<< DODAĆ TĘ LINIĘ
-									try {
-										await onTakePicturePressed(selectedElementName, selectedElementIndex)
-									} catch (err) {
-										console.error('Błąd przy robieniu zdjęcia:', err)
-										// W razie błędu, zresetuj stany
-										setIsTakingPhoto(false)
-										setIsActive(false)
-									}
-								}}
-								className='w-20 h-20 bg-white/80 rounded-full border-4 border-white justify-center items-center'>
-								{isTakingPhoto ? (
-									<ActivityIndicator size='large' color='#000' />
-								) : (
-									<Feather name='camera' size={40} color='#333' />
+					<View className='flex-1 bg-black'>
+						{!capturedPhoto ? (
+							<>
+								<Camera
+									ref={cameraRef}
+									style={StyleSheet.absoluteFill}
+									device={device}
+									photo={true}
+									isActive={isFocused && isActive}
+									onInitialized={() => setIsCameraReady(true)}
+								/>
+								<TouchableOpacity
+									onPress={() => setIsActive(false)}
+									className='absolute top-12 left-5 bg-black/50 p-3 rounded-full'>
+									<Feather name='x' size={24} color='white' />
+								</TouchableOpacity>
+								<View className='absolute bottom-10 w-full items-center'>
+									<TouchableOpacity
+										disabled={isCapturing}
+										onPress={onTakePicturePressed}
+										className='w-20 h-20 bg-white/80 rounded-full border-4 border-white justify-center items-center'>
+										{isCapturing ? (
+											<ActivityIndicator size='large' color='#000' />
+										) : (
+											<Feather name='camera' size={40} color='#333' />
+										)}
+									</TouchableOpacity>
+								</View>
+							</>
+						) : (
+							<View className='flex-1'>
+								<Image source={{ uri: `file://${capturedPhoto.path}` }} style={StyleSheet.absoluteFill} />
+								<View className='absolute bottom-10 w-full flex-row justify-around items-center'>
+									{/* --- POCZĄTEK ZMIANY --- */}
+									<TouchableOpacity onPress={handleRetakePhoto} disabled={isUploading} className='items-center'>
+										{/* Dodajemy tło dla ikony */}
+										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
+											<Feather name='x' size={32} color='white' />
+										</View>
+										<Text className='text-white font-bold mt-2'>Zrób ponownie</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity onPress={handleUsePhoto} disabled={isUploading} className='items-center'>
+										{/* Dodajemy tło dla ikony */}
+										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
+											<Feather name='check' size={32} color='white' />
+										</View>
+										<Text className='text-white font-bold mt-2'>Użyj tego zdjęcia</Text>
+									</TouchableOpacity>
+									{/* --- KONIEC ZMIANY --- */}
+								</View>
+
+								{isUploading && (
+									<View
+										style={[
+											StyleSheet.absoluteFill,
+											{ backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+										]}>
+										<ActivityIndicator size='large' color='white' />
+										<Text className='text-white mt-2'>Wysyłanie...</Text>
+									</View>
 								)}
-							</TouchableOpacity>
-						</View>
+							</View>
+						)}
 					</View>
 				)}
 			</Modal>
