@@ -1,13 +1,28 @@
 // Plik: components/common/CommentInput.js
 import React, { useState, useEffect, useRef } from 'react'
-import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Text } from 'react-native'
+import {
+	View,
+	TextInput,
+	TouchableOpacity,
+	StyleSheet,
+	ActivityIndicator,
+	Text,
+	Modal,
+	SafeAreaView,
+} from 'react-native'
+
 import { MaterialIcons } from '@expo/vector-icons'
 import SpeechRecognitionService from '../../../services/SpeechRecognitionService'
+import AIService from '../../../services/AIService'
 
 const CommentInput = ({ value, onChangeText, placeholder }) => {
 	const [isListening, setIsListening] = useState(false)
 	const [error, setError] = useState('')
 	const [isProcessing, setIsProcessing] = useState(false)
+
+	const [isAiModalVisible, setIsAiModalVisible] = useState(false)
+	const [aiPrompt, setAiPrompt] = useState('')
+	const [isAiProcessing, setIsAiProcessing] = useState(false)
 
 	const textInputRef = useRef(null)
 	const initialTextRef = useRef('')
@@ -68,8 +83,33 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 		}
 	}
 
+	const handleAiIconPress = () => {
+		setAiPrompt('') // Resetuj prompt przy każdym otwarciu
+		setIsAiModalVisible(true)
+	}
+
+	const handleGenerateAiResponse = async () => {
+		if (!aiPrompt.trim()) return
+
+		setIsAiModalVisible(false)
+		setIsAiProcessing(true) // Pokaż spinner
+		setError('')
+
+		try {
+			const generatedText = await AIService.generateDescription(aiPrompt, null)
+
+			const newText = value ? `${value}\n\n--- Wygenerowano przez AI ---\n${generatedText}` : generatedText
+			onChangeText(newText)
+		} catch (err) {
+			setError(err.message || 'Wystąpił nieznany błąd AI.')
+		} finally {
+			setIsAiProcessing(false)
+		}
+	}
+
 	return (
 		<View style={styles.container}>
+			{/* Pole tekstowe z dynamicznymi stylami */}
 			<TextInput
 				ref={textInputRef}
 				style={[styles.input, isListening && styles.listeningInput]}
@@ -77,21 +117,74 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 				onChangeText={onChangeText}
 				placeholder={placeholder || 'Wpisz komentarz...'}
 				multiline
-				editable={!isProcessing}
+				editable={!isProcessing && !isAiProcessing}
 			/>
-			<TouchableOpacity onPress={handleMicPress} style={styles.micButton}>
-				{isListening ? (
-					<MaterialIcons name='pause-circle-filled' size={24} color='#c40000' />
-				) : (
-					<MaterialIcons name='mic' size={24} color='#555' />
-				)}
-			</TouchableOpacity>
-			{isProcessing && (
+			{/* Kontener na ikony */}
+			<View style={styles.iconContainer}>
+				{/* Ikona AI */}
+				<TouchableOpacity
+					onPress={handleAiIconPress}
+					style={styles.iconButton}
+					disabled={isAiProcessing || isProcessing}>
+					<MaterialIcons name='auto-awesome' size={24} color={isAiProcessing || isProcessing ? '#ccc' : '#555'} />
+				</TouchableOpacity>
+
+				{/* Ikona mikrofonu */}
+				<TouchableOpacity onPress={handleMicPress} style={styles.iconButton} disabled={isProcessing || isAiProcessing}>
+					{isListening ? (
+						<MaterialIcons name='pause-circle-filled' size={24} color='#c40000' />
+					) : (
+						<MaterialIcons name='mic' size={24} color={isProcessing || isAiProcessing ? '#ccc' : '#555'} />
+					)}
+				</TouchableOpacity>
+			</View>
+
+			{/* Spinner na czas przetwarzania (zarówno mowy, jak i AI) */}
+			{(isProcessing || isAiProcessing) && (
 				<View style={styles.spinnerOverlay}>
 					<ActivityIndicator size='small' color='#3B82F6' />
+					<Text style={{ marginTop: 5, color: '#3B82F6', fontWeight: 'bold' }}>
+						{isProcessing ? 'Przetwarzanie głosu...' : 'Generowanie AI...'}
+					</Text>
 				</View>
 			)}
+
 			{error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+			{/* Modal do wpisywania promptu AI */}
+			<Modal
+				visible={isAiModalVisible}
+				animationType='slide'
+				transparent={true}
+				onRequestClose={() => setIsAiModalVisible(false)}>
+				<SafeAreaView style={styles.modalContainer}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>Asystent AI</Text>
+						<Text style={styles.modalSubtitle}>
+							Wpisz polecenie, aby wygenerować opis. Możesz odnieść się do zdjęcia, jeśli zostało zrobione dla tej
+							sekcji.
+						</Text>
+
+						<TextInput
+							style={styles.modalInput}
+							placeholder='np. Opisz pęknięcia widoczne na ścianie.'
+							value={aiPrompt}
+							onChangeText={setAiPrompt}
+							multiline
+						/>
+						<View style={styles.modalButtonContainer}>
+							<TouchableOpacity
+								onPress={() => setIsAiModalVisible(false)}
+								style={[styles.modalButton, styles.cancelButton]}>
+								<Text style={styles.buttonText}>Anuluj</Text>
+							</TouchableOpacity>
+							<TouchableOpacity onPress={handleGenerateAiResponse} style={[styles.modalButton, styles.generateButton]}>
+								<Text style={[styles.buttonText, { color: 'white' }]}>Generuj</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</SafeAreaView>
+			</Modal>
 		</View>
 	)
 }
@@ -110,6 +203,17 @@ const styles = StyleSheet.create({
 		minHeight: 80,
 		textAlignVertical: 'top',
 		transition: 'border-color 0.3s',
+	},
+	iconContainer: {
+		position: 'absolute',
+		right: 8,
+		top: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	iconButton: {
+		padding: 4,
+		marginLeft: 4,
 	},
 
 	listeningInput: {
@@ -138,6 +242,24 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgba(255, 255, 255, 0.7)',
 		borderRadius: 8,
 	},
+	modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+	modalContent: { backgroundColor: 'white', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+	modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+	modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 16 },
+	modalInput: {
+		borderWidth: 1,
+		borderColor: '#ccc',
+		borderRadius: 8,
+		padding: 12,
+		minHeight: 100,
+		textAlignVertical: 'top',
+		marginBottom: 16,
+	},
+	modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between' },
+	modalButton: { flex: 1, padding: 14, borderRadius: 8, alignItems: 'center' },
+	cancelButton: { backgroundColor: '#e5e7eb', marginRight: 8 },
+	generateButton: { backgroundColor: '#3B82F6', marginLeft: 8 },
+	buttonText: { fontWeight: 'bold', fontSize: 16 },
 })
 
 export default CommentInput
