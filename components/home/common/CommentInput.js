@@ -15,7 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 import SpeechRecognitionService from '../../../services/SpeechRecognitionService'
 import AIService from '../../../services/AIService'
 
-const CommentInput = ({ value, onChangeText, placeholder }) => {
+const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
 	const [isListening, setIsListening] = useState(false)
 	const [error, setError] = useState('')
 	const [isProcessing, setIsProcessing] = useState(false)
@@ -96,7 +96,7 @@ const CommentInput = ({ value, onChangeText, placeholder }) => {
 		setError('')
 
 		try {
-			const generatedText = await AIService.generateDescription(aiPrompt, null)
+			const generatedText = await AIService.generateDescription(aiPrompt, aiContext, null)
 
 			const newText = value ? `${value}\n\n--- Wygenerowano przez AI ---\n${generatedText}` : generatedText
 			onChangeText(newText)

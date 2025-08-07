@@ -998,6 +998,7 @@ const DetailScreen = () => {
 												placeholder='Dodaj uwagi lub użyj mikrofonu...'
 												value={comments[index]?.[contentIndex] || ''}
 												onChangeText={text => handleCommentChange(index, contentIndex, text)}
+												aiContext={`- Kategoria główna: ${title}\n- Podkategoria: ${element.name}\n- Sprawdzane kryterium: ${content}`}
 											/>
 										</View>
 									))}

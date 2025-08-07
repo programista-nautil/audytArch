@@ -11,7 +11,7 @@ class AIService {
 	 * @param {string} base64Image - Obraz zakodowany w base64.
 	 * @returns {Promise<string>} - Wygenerowany tekst przez AI.
 	 */
-	async generateDescription(prompt, base64Image = null) {
+	async generateDescription(prompt, context, base64Image = null) {
 		if (!prompt) {
 			throw new Error('Prompt nie może być pusty.')
 		}
@@ -21,11 +21,12 @@ class AIService {
 		try {
 			const parts = [
 				{
-					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj zwięzły, profesjonalny i obiektywny opis w języku polskim, który zostanie umieszczony w raporcie z audytu. Skup się na faktach.',
+					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie dostarczonego kontekstu, polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj zwięzły, profesjonalny i obiektywny opis w języku polskim, który zostanie umieszczony w raporcie z audytu.',
 				},
+				{ text: `Kontekst audytu:\n${context}` },
 				{ text: `Polecenie użytkownika: "${prompt}"` },
 			]
-
+			console.log('Kontekst:', context)
 			if (base64Image) {
 				parts.push({
 					inline_data: {
