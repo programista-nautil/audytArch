@@ -84,14 +84,10 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) =>
 	}
 
 	const handleAiIconPress = () => {
-		const handleAiIconPress = () => {
-			if (photo) {
-				console.log('AI będzie analizować zdjęcie:', photo.path)
-			} else {
-				console.log('Brak zdjęcia do analizy AI dla tej sekcji.')
-			}
-			setAiPrompt('')
-			setIsAiModalVisible(true)
+		if (photo) {
+			console.log('AI będzie analizować zdjęcie:', photo.path)
+		} else {
+			console.log('Brak zdjęcia do analizy AI dla tej sekcji.')
 		}
 
 		setAiPrompt('') // Resetuj prompt przy każdym otwarciu
@@ -122,9 +118,9 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) =>
 				}
 			}
 
-			const generatedText = await AIService.generateDescription(aiPrompt, aiContext, base64Image)
+			const generatedText = await AIService.generateDescription(aiPrompt, aiContext, value, base64Image)
 
-			const newText = value ? `${value}\n\n--- Wygenerowano przez AI ---\n${generatedText}` : generatedText
+			const newText = value ? `${value}\n\n${generatedText}` : generatedText
 			onChangeText(newText)
 		} catch (err) {
 			setError(err.message || 'Wystąpił nieznany błąd AI.')

@@ -11,7 +11,7 @@ class AIService {
 	 * @param {string} base64Image - Obraz zakodowany w base64.
 	 * @returns {Promise<string>} - Wygenerowany tekst przez AI.
 	 */
-	async generateDescription(prompt, context, base64Image = null) {
+	async generateDescription(prompt, context, existingText = '', base64Image = null) {
 		if (!prompt) {
 			throw new Error('Prompt nie może być pusty.')
 		}
@@ -21,12 +21,18 @@ class AIService {
 		try {
 			const parts = [
 				{
-					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie dostarczonego kontekstu, polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj zwięzły, profesjonalny i obiektywny opis w języku polskim, który zostanie umieszczony w raporcie z audytu. W odpowiedzi nie zamieszczaj wprowadzeń żadnych, ale możesz dodać jakieś podpowiedzi lub sugestie, jeśli uznasz to za stosowne.',
+					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie dostarczonego kontekstu, polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj TYLKO NOWĄ treść w języku polskim, która zostanie DODANA do istniejącej notatki. WAŻNE: NIE KOPIUJ, NIE POWTARZAJ, NIE PARAFRAZUJ istniejącego tekstu - tylko napisz nowe informacje lub uzupełnienia.',
 				},
 				{ text: `Kontekst audytu:\n${context}` },
-				{ text: `Polecenie użytkownika: "${prompt}"` },
+				{
+					text: `ISTNIEJĄCA TREŚĆ NOTATKI (zapoznaj się z nią, ale NIE PRZEPISUJ jej w odpowiedzi - służy tylko jako kontekst):\n"${existingText}"`,
+				},
+				{ text: `ZADANIE: ${prompt}` },
+				{
+					text: 'Odpowiedź powinna zawierać TYLKO nowe informacje, które uzupełnią istniejącą notatkę. Nie dodawaj wprowadzeń typu "Dodatkowe informacje:" - od razu zacznij od meritum.',
+				},
 			]
-			console.log('Kontekst:', context)
+			console.log('Kontekst:', parts)
 			if (base64Image) {
 				parts.push({
 					inline_data: {
