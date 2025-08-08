@@ -57,6 +57,8 @@ const DetailScreen = () => {
 	const [currentId_textid, setCurrentId_textid] = useState('')
 	const [isOnline, setIsOnline] = useState(true)
 
+	const [takenPhotos, setTakenPhotos] = useState({})
+
 	useEffect(() => {
 		const fetchId = async () => {
 			const data = await retrieveData()
@@ -892,6 +894,12 @@ const DetailScreen = () => {
 		if (!capturedPhoto) return
 
 		setIsUploading(true) // Włączamy spinner (teraz na ekranie podglądu)
+
+		setTakenPhotos(prevPhotos => ({
+			...prevPhotos,
+			[selectedElementIndex]: capturedPhoto,
+		}))
+
 		await uploadPhoto(capturedPhoto, selectedElementName, selectedElementIndex)
 		setIsUploading(false)
 		// Resetujemy stany po zakończeniu wysyłania/zapisu
@@ -999,6 +1007,7 @@ const DetailScreen = () => {
 												value={comments[index]?.[contentIndex] || ''}
 												onChangeText={text => handleCommentChange(index, contentIndex, text)}
 												aiContext={`- Kategoria główna: ${title}\n- Podkategoria: ${element.name}\n- Sprawdzane kryterium: ${content}`}
+												photo={takenPhotos[index]}
 											/>
 										</View>
 									))}

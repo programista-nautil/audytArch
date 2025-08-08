@@ -10,12 +10,12 @@ import {
 	Modal,
 	SafeAreaView,
 } from 'react-native'
-
+import RNFetchBlob from 'rn-fetch-blob'
 import { MaterialIcons } from '@expo/vector-icons'
 import SpeechRecognitionService from '../../../services/SpeechRecognitionService'
 import AIService from '../../../services/AIService'
 
-const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
+const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) => {
 	const [isListening, setIsListening] = useState(false)
 	const [error, setError] = useState('')
 	const [isProcessing, setIsProcessing] = useState(false)
@@ -84,6 +84,16 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
 	}
 
 	const handleAiIconPress = () => {
+		const handleAiIconPress = () => {
+			if (photo) {
+				console.log('AI będzie analizować zdjęcie:', photo.path)
+			} else {
+				console.log('Brak zdjęcia do analizy AI dla tej sekcji.')
+			}
+			setAiPrompt('')
+			setIsAiModalVisible(true)
+		}
+
 		setAiPrompt('') // Resetuj prompt przy każdym otwarciu
 		setIsAiModalVisible(true)
 	}
@@ -96,7 +106,23 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
 		setError('')
 
 		try {
-			const generatedText = await AIService.generateDescription(aiPrompt, aiContext, null)
+			let base64Image = null
+
+			if (photo && photo.path) {
+				try {
+					console.log(`Odczytywanie zdjęcia z ścieżki: ${photo.path}`)
+					base64Image = await RNFetchBlob.fs.readFile(photo.path, 'base64')
+					console.log('Zdjęcie pomyślnie zakodowano.')
+					console.log('Rozmiar zdjęcia w base64:', base64Image.length)
+				} catch (readError) {
+					console.error('Błąd odczytu pliku zdjęcia:', readError)
+					Alert.alert('Błąd', 'Nie udało się odczytać pliku zdjęcia. Spróbuj zrobić je ponownie.')
+					setIsAiProcessing(false)
+					return
+				}
+			}
+
+			const generatedText = await AIService.generateDescription(aiPrompt, aiContext, base64Image)
 
 			const newText = value ? `${value}\n\n--- Wygenerowano przez AI ---\n${generatedText}` : generatedText
 			onChangeText(newText)
@@ -121,14 +147,6 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
 			/>
 			{/* Kontener na ikony */}
 			<View style={styles.iconContainer}>
-				{/* Ikona AI */}
-				<TouchableOpacity
-					onPress={handleAiIconPress}
-					style={styles.iconButton}
-					disabled={isAiProcessing || isProcessing}>
-					<MaterialIcons name='auto-awesome' size={24} color={isAiProcessing || isProcessing ? '#ccc' : '#555'} />
-				</TouchableOpacity>
-
 				{/* Ikona mikrofonu */}
 				<TouchableOpacity onPress={handleMicPress} style={styles.iconButton} disabled={isProcessing || isAiProcessing}>
 					{isListening ? (
@@ -136,6 +154,14 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext }) => {
 					) : (
 						<MaterialIcons name='mic' size={24} color={isProcessing || isAiProcessing ? '#ccc' : '#555'} />
 					)}
+				</TouchableOpacity>
+
+				{/* Ikona AI */}
+				<TouchableOpacity
+					onPress={handleAiIconPress}
+					style={[styles.iconButton, styles.aiIcon]}
+					disabled={isAiProcessing || isProcessing}>
+					<MaterialIcons name='auto-awesome' size={24} color={isAiProcessing || isProcessing ? '#ccc' : '#555'} />
 				</TouchableOpacity>
 			</View>
 
@@ -207,13 +233,18 @@ const styles = StyleSheet.create({
 	iconContainer: {
 		position: 'absolute',
 		right: 8,
-		top: 8,
-		flexDirection: 'row',
+		top: 2,
+		flexDirection: 'column',
 		alignItems: 'center',
 	},
 	iconButton: {
 		padding: 4,
-		marginLeft: 4,
+		marginTop: 4,
+	},
+
+	aiIcon: {
+		marginTop: 0,
+		marginBottom: 4,
 	},
 
 	listeningInput: {

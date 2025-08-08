@@ -21,7 +21,7 @@ class AIService {
 		try {
 			const parts = [
 				{
-					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie dostarczonego kontekstu, polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj zwięzły, profesjonalny i obiektywny opis w języku polskim, który zostanie umieszczony w raporcie z audytu.',
+					text: 'Jesteś ekspertem od audytów architektonicznych. Na podstawie dostarczonego kontekstu, polecenia użytkownika oraz załączonego zdjęcia (jeśli istnieje), wygeneruj zwięzły, profesjonalny i obiektywny opis w języku polskim, który zostanie umieszczony w raporcie z audytu. W odpowiedzi nie zamieszczaj wprowadzeń żadnych, ale możesz dodać jakieś podpowiedzi lub sugestie, jeśli uznasz to za stosowne.',
 				},
 				{ text: `Kontekst audytu:\n${context}` },
 				{ text: `Polecenie użytkownika: "${prompt}"` },
