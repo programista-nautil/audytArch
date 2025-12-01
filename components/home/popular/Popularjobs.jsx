@@ -115,6 +115,22 @@ const Popularjobs = () => {
 		{ id: 17, title: 'KWESTIONARIUSZ GUS', icon: require('../../../assets/images/qa.png') },
 	]
 
+	const data_szkola = [
+		{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') },
+		{ id: 1, title: '1.OTOCZENIE ZEWNĘTRZNE', icon: require('../../../assets/images/zew.png') },
+		{ id: 2, title: '2.TERENY SPORTOWE I REKREACYJNE', icon: require('../../../assets/images/parking.jpg') },
+		{ id: 3, title: '3.STREFA WEJŚCIA', icon: require('../../../assets/images/strefaWej.jpg') },
+		{ id: 4, title: '4.SCHODY ZEWNĘTRZNE', icon: require('../../../assets/images/outdoor_stairs.jpg') },
+		{ id: 5, title: '5.POCHYLNIE', icon: require('../../../assets/images/ramp.jpg') },
+		{ id: 6, title: '6.KORYTARZE', icon: require('../../../assets/images/corridors.jpg') },
+		{ id: 7, title: '7.KOMUNIKACJA PIONOWA', icon: require('../../../assets/images/stairs.jpg') },
+		{ id: 8, title: '8.DZWIGI OSOBOWE PLATFORMY', icon: require('../../../assets/images/elevator.jpg') },
+		{ id: 9, title: '9.WC DLA OzN', icon: require('../../../assets/images/wc.jpg') },
+		{ id: 10, title: '10.INNE POMIESZCZENIA', icon: require('../../../assets/images/otherRooms.jpg') },
+		{ id: 11, title: '11.OCHRONA PRZECIWPOŻAROWA', icon: require('../../../assets/images/fireproof.jpg') },
+		{ id: 12, title: '12.INFORMACJE', icon: require('../../../assets/images/qa.png') },
+	]
+
 	useFocusEffect(
 		React.useCallback(() => {
 			const fetchId = async () => {
@@ -142,6 +158,9 @@ const Popularjobs = () => {
 						case '9':
 						case '10':
 							sourceData = data_general
+							break
+						case '11':
+							sourceData = data_szkola
 							break
 						default:
 							sourceData = data_default
