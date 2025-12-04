@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
 	ScrollView,
 	Text,
@@ -14,6 +14,7 @@ import {
 	TextInput as NativeTextInput,
 	SafeAreaView,
 	Modal,
+	FlatList,
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { useNavigation, useRoute, useIsFocused, useFocusEffect } from '@react-navigation/native'
@@ -25,6 +26,8 @@ import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
+
+const SAFE_MAX_ROW_LIMIT = 100
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -111,10 +114,8 @@ const DetailScreen = () => {
 
 	let fetchedTables = []
 
-	async function fetchDataFromSheet() {
-		const storageData = await retrieveData()
+	async function fetchDataFromSheet(storageData, token) {
 		const { textId, copiedTemplateId: spreadsheetId, id } = storageData
-		const token = (await GoogleSignin.getTokens()).accessToken
 
 		if (id === '11') {
 			console.log('Używam NOWEJ logiki pobierania danych (bez text_id) dla szablonu ID: 11')
@@ -218,26 +219,44 @@ const DetailScreen = () => {
 	}
 
 	//pobieranie szablonu tabeli do uzupełnienia
-	async function fetchTemplate(rowCount) {
-		const token = (await GoogleSignin.getTokens()).accessToken
+	async function fetchTemplateWithBuffer(token, spreadsheetId) {
 		try {
 			const response = await fetch(
-				`https://sheets.googleapis.com/v4/spreadsheets/${
-					(await retrieveData()).copiedTemplateId
-				}/values/${encodeURIComponent(SHEET_ID)}!A1:P${rowCount}`,
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SHEET_ID)}!A1:P${SAFE_MAX_ROW_LIMIT}`,
 				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
+					headers: { Authorization: `Bearer ${token}` },
 				}
 			)
-
 			const result = await response.json()
-			return result.values
+			return result.values || []
 		} catch (error) {
 			console.error('Błąd podczas pobierania szablonu:', error)
-			return [] // Zwróć pustą tablicę w przypadku błędu
+			return []
 		}
+	}
+
+	function trimTemplateData(values) {
+		if (!values || values.length === 0) return []
+
+		let cutOffIndex = values.length
+
+		// Logika szukania końca danych
+		for (let i = 0; i < values.length; i++) {
+			const firstCell = values[i][0]
+
+			if (firstCell === '/') {
+				cutOffIndex = i
+				break
+			}
+
+			if (!firstCell) {
+				cutOffIndex = i
+				break
+			}
+		}
+
+		// Zwracamy przyciętą tablicę
+		return values.slice(0, cutOffIndex)
 	}
 
 	function mergeTemplateWithData(template, userData) {
@@ -343,49 +362,6 @@ const DetailScreen = () => {
 		return () => backHandler.remove()
 	}, [])
 
-	async function getRowCountEffect(spreadsheetId, sheetName) {
-		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-		const tokens = await GoogleSignin.getTokens()
-		const accessToken = tokens.accessToken
-
-		try {
-			const response = await fetch(url, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
-			const result = await response.json()
-
-			if (!response.ok) {
-				console.error('API Error:', result.error)
-				return 0
-			}
-
-			const values = result.values || []
-			const totalRows = values.length
-
-			// 1. Szukamy pierwszego wystąpienia znaku '/'
-			for (let i = 0; i < values.length; i++) {
-				if (values[i][0] === '/') {
-					return i
-				}
-			}
-
-			// 2. Jeśli nie znaleziono '/', szukamy pierwszego pustego
-			for (let i = 0; i < values.length; i++) {
-				if (!values[i][0]) {
-					return i
-				}
-			}
-
-			// 3. Jeśli nie ma pustych, zwracamy całkowitą liczbę
-			return totalRows
-		} catch (error) {
-			console.error('Error fetching row count:', error)
-			return 0
-		}
-	}
-
 	const getSheetMetadataEffect = async () => {
 		const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
 		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
@@ -432,22 +408,20 @@ const DetailScreen = () => {
 		const fetchData = async () => {
 			setIsLoading(true)
 			try {
-				const tokens = await GoogleSignin.getTokens()
+				const [tokens, storageData] = await Promise.all([GoogleSignin.getTokens(), retrieveData()])
 				const accessToken = tokens.accessToken
 
-				const data = await fetchDataFromSheet()
+				const [data, rawTemplateValues] = await Promise.all([
+					fetchDataFromSheet(storageData, accessToken),
+					fetchTemplateWithBuffer(accessToken, storageData.copiedTemplateId),
+				])
 
-				const sheetMetadata = await getSheetMetadataEffect(accessToken)
+				const trimmedTemplateValues = trimTemplateData(rawTemplateValues)
 
-				const sheetName = sheetMetadata.sheetName
-				const spreadsheetId = sheetMetadata.spreadsheetId
+				console.log('Pobrane wiersze (surowe):', rawTemplateValues.length)
+				console.log('Pobrane wiersze (przycięte):', trimmedTemplateValues.length)
 
-				const rowCount = await getRowCountEffect(spreadsheetId, sheetName, accessToken)
-
-				const templateValues = await fetchTemplate(rowCount)
-				console.log('Pobrane wartości szablonu:', templateValues)
-
-				setTemplateValuesState(templateValues)
+				setTemplateValuesState(trimmedTemplateValues)
 				setElements(data)
 				setComments(data.map(() => ''))
 				setSwitchValues(data.map(() => false))
@@ -455,7 +429,7 @@ const DetailScreen = () => {
 			} catch (error) {
 				console.error('Błąd podczas pobierania danych:', error)
 			} finally {
-				setIsLoading(false) // <<<< DODAJ
+				setIsLoading(false)
 			}
 		}
 
@@ -1072,6 +1046,115 @@ const DetailScreen = () => {
 		})
 	}
 
+	const renderItem = useCallback(
+		({ item: element, index }) => {
+			return (
+				<View className='bg-white my-2 rounded-xl shadow-sm overflow-hidden mx-2'>
+					{/* Nagłówek sekcji */}
+					<View className='p-4 flex-row justify-between items-center'>
+						<Text className='text-lg font-bold text-gray-800 flex-1 pr-4'>{element.name}</Text>
+						<Switch
+							trackColor={{ false: '#E5E7EB', true: '#81b0ff' }}
+							thumbColor={openSections[index] ? '#3B82F6' : '#f4f3f4'}
+							ios_backgroundColor='#3e3e3e'
+							onValueChange={() => handleToggle(index)}
+							value={!!openSections[index]}
+						/>
+					</View>
+
+					{/* Rozwijana zawartość */}
+					{openSections[index] && (
+						<View>
+							{element.content.map((content, contentIndex) => (
+								<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
+									<Text className='text-base text-gray-700 mb-4'>{content}</Text>
+
+									{/* Przyciski */}
+									<View className='flex-row flex-wrap gap-2 mb-4'>
+										{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
+											<TouchableOpacity
+												key={value}
+												onPress={() => handleSwitchContent(index, contentIndex, value)}
+												className={`px-3 py-2 rounded-full border ${switchValuesContent[index]?.[contentIndex] === value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+												<Text
+													className={`font-semibold ${switchValuesContent[index]?.[contentIndex] === value ? 'text-white' : 'text-gray-700'}`}>
+													{value}
+												</Text>
+											</TouchableOpacity>
+										))}
+									</View>
+
+									{/* Komentarz */}
+									<CommentInput
+										placeholder='Dodaj uwagi lub użyj mikrofonu...'
+										value={comments[index]?.[contentIndex] || ''}
+										onChangeText={text => handleCommentChange(index, contentIndex, text)}
+										aiContext={`- Kategoria główna: ${title}\n- Podkategoria: ${element.name}\n- Sprawdzane kryterium: ${content}`}
+										photo={takenPhotos[index]}
+									/>
+								</View>
+							))}
+
+							{/* Aparat */}
+							<View className='p-4 border-t border-gray-200'>
+								<TouchableOpacity
+									onPress={() => {
+										let com = comments[index]?.[0] || ''
+										setSelectedElementName(element.name + com)
+										setSelectedElementIndex(index)
+										setIsActive(true)
+									}}
+									className='flex-row items-center justify-center bg-gray-200 active:bg-gray-300 rounded-lg p-3'>
+									<Feather name='camera' size={20} color='#4B5563' />
+									<Text className='text-gray-700 font-semibold ml-3'>Zrób zdjęcie</Text>
+								</TouchableOpacity>
+
+								{/* Status wysyłania */}
+								{uploadStatuses[index] && (
+									<View
+										className={`mt-2 p-2 rounded-md flex-row items-center ${
+											uploadStatuses[index] === 'success'
+												? 'bg-green-100'
+												: uploadStatuses[index] === 'error'
+													? 'bg-red-100'
+													: 'bg-yellow-100'
+										}`}>
+										<Feather
+											name={
+												uploadStatuses[index] === 'success'
+													? 'check-circle'
+													: uploadStatuses[index] === 'error'
+														? 'x-circle'
+														: 'clock'
+											}
+											size={16}
+											color={
+												uploadStatuses[index] === 'success'
+													? '#16A34A'
+													: uploadStatuses[index] === 'error'
+														? '#DC2626'
+														: '#D97706'
+											}
+										/>
+										<Text
+											className={`ml-2 font-medium ${uploadStatuses[index] === 'success' ? 'text-green-800' : uploadStatuses[index] === 'error' ? 'text-red-800' : 'text-yellow-800'}`}>
+											{uploadStatuses[index] === 'success'
+												? 'Zdjęcie wysłane'
+												: uploadStatuses[index] === 'error'
+													? 'Błąd wysyłania'
+													: 'Zapisano w kolejce'}
+										</Text>
+									</View>
+								)}
+							</View>
+						</View>
+					)}
+				</View>
+			)
+		},
+		[openSections, switchValuesContent, comments, uploadStatuses, takenPhotos]
+	)
+
 	if (isLoading) {
 		return (
 			<SafeAreaView className='flex-1 justify-center items-center bg-gray-100'>
@@ -1085,144 +1168,39 @@ const DetailScreen = () => {
 		<SafeAreaView className='flex-1 bg-gray-100'>
 			<Stack.Screen options={{ headerTitle: title, headerTitleAlign: 'center' }} />
 
-			<ScrollView>
-				<View className='p-2'>
-					{elements.map((element, index) => (
-						<View key={index} className='bg-white my-2 rounded-xl shadow-sm overflow-hidden'>
-							{/* Nagłówek sekcji z oryginalnym Switchem */}
-							<View className='p-4 flex-row justify-between items-center'>
-								<Text className='text-lg font-bold text-gray-800 flex-1 pr-4'>{element.name}</Text>
-								<Switch
-									trackColor={{ false: '#E5E7EB', true: '#81b0ff' }}
-									thumbColor={openSections[index] ? '#3B82F6' : '#f4f3f4'}
-									ios_backgroundColor='#3e3e3e'
-									onValueChange={() => handleToggle(index)}
-									value={!!openSections[index]}
-								/>
-							</View>
+			<FlatList
+				data={elements}
+				keyExtractor={(item, index) => index.toString()}
+				renderItem={renderItem}
+				contentContainerStyle={{ padding: 8 }}
+				ListFooterComponent={
+					<View className='p-5 pb-20'>
+						<TouchableOpacity
+							onPress={handleSubmit} // Tutaj musisz mieć zdefiniowaną funkcję handleSubmit w scope (skopiuj ją z oryginału)
+							disabled={isSubmitting}
+							className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
+							{isSubmitting ? (
+								<ActivityIndicator color='white' />
+							) : (
+								<>
+									<Feather name='send' size={20} color='white' />
+									<Text className='text-white text-lg font-bold ml-3'>WYŚLIJ</Text>
+								</>
+							)}
+						</TouchableOpacity>
 
-							{/* Rozwijana zawartość - renderowana warunkowo jak w oryginale */}
-							{openSections[index] && (
-								<View>
-									{element.content.map((content, contentIndex) => (
-										<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
-											<Text className='text-base text-gray-700 mb-4'>{content}</Text>
-
-											{/* Przyciski Tak/Nie/Nie dotyczy - ostylowane, logika ta sama */}
-											<View className='flex-row flex-wrap gap-2 mb-4'>
-												{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
-													<TouchableOpacity
-														key={value}
-														onPress={() => handleSwitchContent(index, contentIndex, value)}
-														className={`px-3 py-2 rounded-full border ${switchValuesContent[index]?.[contentIndex] === value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
-														<Text
-															className={`font-semibold ${switchValuesContent[index]?.[contentIndex] === value ? 'text-white' : 'text-gray-700'}`}>
-															{value}
-														</Text>
-													</TouchableOpacity>
-												))}
-											</View>
-
-											{/* Pole na uwagi - ostylowane, logika ta sama */}
-											<CommentInput
-												placeholder='Dodaj uwagi lub użyj mikrofonu...'
-												value={comments[index]?.[contentIndex] || ''}
-												onChangeText={text => handleCommentChange(index, contentIndex, text)}
-												aiContext={`- Kategoria główna: ${title}\n- Podkategoria: ${element.name}\n- Sprawdzane kryterium: ${content}`}
-												photo={takenPhotos[index]}
-											/>
-										</View>
-									))}
-
-									{/* Przycisk aparatu na dole sekcji - jak w oryginale */}
-									<View className='p-4 border-t border-gray-200'>
-										<TouchableOpacity
-											onPress={() => {
-												let com = comments[index]?.[0] || ''
-												setSelectedElementName(element.name + com)
-												setSelectedElementIndex(index)
-												setIsActive(true)
-											}}
-											className='flex-row items-center justify-center bg-gray-200 active:bg-gray-300 rounded-lg p-3'>
-											<Feather name='camera' size={20} color='#4B5563' />
-											<Text className='text-gray-700 font-semibold ml-3'>Zrób zdjęcie</Text>
-										</TouchableOpacity>
-
-										{/* Status wysyłania zdjęcia */}
-										{uploadStatuses[index] && (
-											<View
-												className={`mt-2 p-2 rounded-md flex-row items-center ${
-													uploadStatuses[index] === 'success'
-														? 'bg-green-100'
-														: uploadStatuses[index] === 'error'
-															? 'bg-red-100'
-															: 'bg-yellow-100'
-												}`}>
-												<Feather
-													name={
-														uploadStatuses[index] === 'success'
-															? 'check-circle'
-															: uploadStatuses[index] === 'error'
-																? 'x-circle'
-																: 'clock'
-													}
-													size={16}
-													color={
-														uploadStatuses[index] === 'success'
-															? '#16A34A'
-															: uploadStatuses[index] === 'error'
-																? '#DC2626'
-																: '#D97706'
-													}
-												/>
-												<Text
-													className={`ml-2 font-medium ${
-														uploadStatuses[index] === 'success'
-															? 'text-green-800'
-															: uploadStatuses[index] === 'error'
-																? 'text-red-800'
-																: 'text-yellow-800'
-													}`}>
-													{uploadStatuses[index] === 'success'
-														? 'Zdjęcie wysłane'
-														: uploadStatuses[index] === 'error'
-															? 'Błąd wysyłania'
-															: 'Zapisano w kolejce'}
-												</Text>
-											</View>
-										)}
-									</View>
-								</View>
+						<View className='items-center mt-10 mb-20'>
+							{sendCount > 0 ? (
+								<Text className='text-gray-700 font-semibold'>
+									Wysłano danych dla tej kategorii: {sendCount} raz(y)
+								</Text>
+							) : (
+								<Text className='text-gray-700 font-semibold'>Nie wysłano jeszcze danych dla tej kategorii</Text>
 							)}
 						</View>
-					))}
-				</View>
-
-				{/* Przycisk Wyślij - normalny przycisk na dole */}
-				<View className='p-5'>
-					<TouchableOpacity
-						onPress={handleSubmit}
-						disabled={isSubmitting}
-						className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
-						{isSubmitting ? (
-							<ActivityIndicator color='white' />
-						) : (
-							<>
-								<Feather name='send' size={20} color='white' />
-								<Text className='text-white text-lg font-bold ml-3'>WYŚLIJ</Text>
-							</>
-						)}
-					</TouchableOpacity>
-
-					<View className='items-center mt-10 mb-20'>
-						{sendCount > 0 ? (
-							<Text className='text-gray-700 font-semibold'>Wysłano danych dla tej kategorii: {sendCount} raz(y)</Text>
-						) : (
-							<Text className='text-gray-700 font-semibold'>Nie wysłano jeszcze danych dla tej kategorii</Text>
-						)}
 					</View>
-				</View>
-			</ScrollView>
+				}
+			/>
 
 			{/* Modal z aparatem - UI jak wcześniej, logika podpięta pod oryginał */}
 			<Modal visible={isActive} onRequestClose={() => setIsActive(false)} animationType='slide'>
