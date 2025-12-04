@@ -23,7 +23,7 @@ import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-n
 import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Stack, router } from 'expo-router'
+import { Stack, router, useLocalSearchParams } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
@@ -52,13 +52,48 @@ const DetailScreen = () => {
 	const [isUploading, setIsUploading] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 
+	const [sendCount, setSendCount] = useState(0)
+
 	const route = useRoute()
 	const { id, title } = route.params
+
+	const params = useLocalSearchParams()
+	const { header, link } = params
 
 	const [currentId_textid, setCurrentId_textid] = useState('')
 	const [isOnline, setIsOnline] = useState(true)
 
 	const [takenPhotos, setTakenPhotos] = useState({})
+
+	const getCountStorageKey = async () => {
+		const id = await AsyncStorage.getItem('@Id') // ID szablonu/audytu
+		const folderId = await AsyncStorage.getItem('@PhotosFolderId') // Lub inny unikalny ID audytu
+		// Używamy folderId jako unikalnego identyfikatora konkretnego audytu (bo ID szablonu jest wspólne dla wielu audytów tego typu)
+		return `@SendCounts_${folderId}`
+	}
+
+	useEffect(() => {
+		const loadSendCount = async () => {
+			try {
+				const storageKey = await getCountStorageKey()
+				const storedData = await AsyncStorage.getItem(storageKey)
+
+				if (storedData) {
+					const counts = JSON.parse(storedData)
+					// header to nazwa kategorii, np. "7. RECEPCJA"
+					if (counts[header]) {
+						setSendCount(counts[header])
+					} else {
+						setSendCount(0)
+					}
+				}
+			} catch (error) {
+				console.error('Błąd ładowania licznika:', error)
+			}
+		}
+
+		loadSendCount()
+	}, [header])
 
 	useEffect(() => {
 		const fetchId = async () => {
@@ -630,9 +665,11 @@ const DetailScreen = () => {
 						return null
 					}
 
-					const targetSheet = sheets.find(sheet => sheet.properties.title === title)
+					const targetSheetTitle = title
+
+					const targetSheet = sheets.find(sheet => sheet.properties.title === targetSheetTitle)
 					if (!targetSheet) {
-						console.error(`Sheet titled ${title}  not found.`)
+						console.error(`Sheet titled ${targetSheetTitle}  not found.`)
 						return null
 					}
 
@@ -728,6 +765,19 @@ const DetailScreen = () => {
 
 			// Adjust and execute the copy of styles
 			await copyStylesAndData(spreadsheetId, sheetId, rowCount, accessToken, sheetName)
+
+			const storageKey = await getCountStorageKey()
+			const storedData = await AsyncStorage.getItem(storageKey)
+			let counts = storedData ? JSON.parse(storedData) : {}
+
+			// Inkrementacja dla bieżącej kategorii (header)
+			const currentCount = counts[header] || 0
+			const newCount = currentCount + 1
+			counts[header] = newCount
+
+			await AsyncStorage.setItem(storageKey, JSON.stringify(counts))
+			setSendCount(newCount)
+			Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 		} catch (error) {
 			console.error('Błąd podczas wysyłania formularza:', error)
 		} finally {
@@ -787,8 +837,6 @@ const DetailScreen = () => {
 					`Błąd podczas wysyłania danych: ${appendResponse.status} ${appendResponse.statusText} - ${errorDetails}`
 				)
 			}
-
-			Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
 		} catch (error) {
 			console.error('Błąd:', error)
 			Alert.alert('Błąd', `Wystąpił problem podczas wysyłania danych: ${error.message}`)
@@ -1165,6 +1213,14 @@ const DetailScreen = () => {
 							</>
 						)}
 					</TouchableOpacity>
+
+					<View className='items-center mt-10 mb-20'>
+						{sendCount > 0 ? (
+							<Text className='text-gray-700 font-semibold'>Wysłano danych dla tej kategorii: {sendCount} raz(y)</Text>
+						) : (
+							<Text className='text-gray-700 font-semibold'>Nie wysłano jeszcze danych dla tej kategorii</Text>
+						)}
+					</View>
 				</View>
 			</ScrollView>
 
