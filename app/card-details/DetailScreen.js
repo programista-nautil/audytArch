@@ -81,11 +81,12 @@ const DetailScreen = () => {
 				const storageKey = await getCountStorageKey()
 				const storedData = await AsyncStorage.getItem(storageKey)
 
+				setSendCount(0)
+
 				if (storedData) {
 					const counts = JSON.parse(storedData)
-					// header to nazwa kategorii, np. "7. RECEPCJA"
-					if (counts[header]) {
-						setSendCount(counts[header])
+					if (counts[title]) {
+						setSendCount(counts[title])
 					} else {
 						setSendCount(0)
 					}
@@ -96,7 +97,7 @@ const DetailScreen = () => {
 		}
 
 		loadSendCount()
-	}, [header])
+	}, [title, isFocused])
 
 	useEffect(() => {
 		const fetchId = async () => {
@@ -715,10 +716,10 @@ const DetailScreen = () => {
 			const storedData = await AsyncStorage.getItem(storageKey)
 			let counts = storedData ? JSON.parse(storedData) : {}
 
-			// Inkrementacja dla bieżącej kategorii (header)
-			const currentCount = counts[header] || 0
+			// Inkrementacja dla bieżącej kategorii
+			const currentCount = counts[title] || 0
 			const newCount = currentCount + 1
-			counts[header] = newCount
+			counts[title] = newCount
 
 			await AsyncStorage.setItem(storageKey, JSON.stringify(counts))
 			setSendCount(newCount)
