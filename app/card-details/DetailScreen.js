@@ -112,109 +112,80 @@ const DetailScreen = () => {
 
 	const SHEET_ID = title
 
-	let fetchedTables = []
-
 	async function fetchDataFromSheet(storageData, token) {
-		const { textId, copiedTemplateId: spreadsheetId, id } = storageData
+		const { copiedTemplateId: spreadsheetId } = storageData
 
-		if (id === '11') {
-			console.log('Używam NOWEJ logiki pobierania danych (bez text_id) dla szablonu ID: 11')
-			try {
-				// Pobieramy kolumny A (Lp.) i B (Kategoria/kryterium)
-				const response = await fetch(
-					`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SHEET_ID)}!A2:B`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					}
-				)
-
-				const result = await response.json()
-
-				if (result.values && result.values.length > 0) {
-					const groupedData = []
-					let currentSection = null
-
-					for (const row of result.values) {
-						const id = row[0] ? row[0].trim() : '' // np. "1.", "1.1", "1.1.1."
-						const text = row[1] // Treść
-
-						if (id === '/' || (!id && !text)) {
-							console.log('Koniec szablonu (napotkano separator lub pusty wiersz).')
-							break
-						}
-
-						if (!id || !text) continue
-
-						// Liczymy kropki, żeby określić poziom zagnieżdżenia
-						const dotCount = (id.match(/\./g) || []).length
-
-						// --- LOGIKA ROZPOZNAWANIA NAGŁÓWKA SEKCYJNEGO ---
-						// Zakładamy, że nagłówki to np. "1.", "2." (dotCount=1, koniec kropką) LUB "1.1", "2.1" (dotCount < 2)
-						if (dotCount < 2 || (dotCount === 2 && !id.endsWith('.'))) {
-							currentSection = {
-								// ZMIANA TUTAJ: Dodajemy " - " na końcu nazwy
-								name: `${id} ${text} - `,
-								content: [],
-							}
-
-							// --- LOGIKA "Lokalizacja" ---
-							// Sprawdzamy czy to główna sekcja (np. "1.", "2.", "10.")
-							// Warunek: Kończy się kropką i ma tylko jedną kropkę (czyli jest liczbą całkowitą z kropką)
-							if (id.endsWith('.') && dotCount === 1) {
-								currentSection.content.push('Lokalizacja')
-							}
-
-							groupedData.push(currentSection)
-						}
-						// --- LOGIKA DLA PYTAŃ / KRYTERIÓW ---
-						else if (currentSection) {
-							// np. "1.1.1. Treść pytania"
-							currentSection.content.push(`${id} ${text}`)
-						}
-					}
-					return groupedData
-				} else {
-					console.log('No data found in Main Template.')
-					return []
+		try {
+			// Pobieramy kolumny A (Lp.) i B (Kategoria/kryterium)
+			const response = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SHEET_ID)}!A2:B`,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
 				}
-			} catch (error) {
-				console.error('Error fetching data from sheet:', error)
+			)
+
+			const result = await response.json()
+
+			if (result.values && result.values.length > 0) {
+				const groupedData = []
+				let currentSection = null
+
+				for (const row of result.values) {
+					const idRaw = row[0] ? row[0].trim() : ''
+					const text = row[1]
+
+					// Sprawdzenie końca tabeli
+					if (idRaw === '/' || (!idRaw && !text)) {
+						console.log('Koniec szablonu (napotkano separator lub pusty wiersz).')
+						break
+					}
+
+					if (!idRaw || !text) continue
+
+					// --- NOWA LOGIKA ZABEZPIECZAJĄCA ---
+
+					// 1. Normalizacja: Usuń kropkę z końca, jeśli tam jest (zamienia "2.1." na "2.1")
+					const normalizedId = idRaw.replace(/\.$/, '')
+
+					// 2. Podział na części: Dzielimy po kropce i filtrujemy puste (na wypadek literówek typu "2..1")
+					// Przykład: "2.1.14" -> ["2", "1", "14"] -> hierarchyLevel = 3
+					// Przykład: "2.1"    -> ["2", "1"]       -> hierarchyLevel = 2
+					const hierarchyParts = normalizedId.split('.').filter(part => part.trim() !== '')
+					const hierarchyLevel = hierarchyParts.length
+
+					// 3. Decyzja na podstawie poziomu zagłębienia
+					// Zakładamy, że Sekcje to poziom 1 (np. "1.") i poziom 2 (np. "1.1")
+					// Wszystko głębiej (poziom 3, 4...) to pytania/kryteria
+					const isSectionHeader = hierarchyLevel <= 2
+
+					if (isSectionHeader) {
+						// To jest nagłówek (np. "1. Otoczenie" lub "1.1 Ciągi")
+						currentSection = {
+							name: `${idRaw} ${text} - `, // Używamy oryginalnego idRaw do wyświetlania
+							content: [],
+						}
+
+						// Dodaj "Lokalizacja" tylko dla głównych kategorii (Poziom 1, np. "1.", "2.")
+						if (hierarchyLevel === 1) {
+							currentSection.content.push('Lokalizacja')
+						}
+
+						groupedData.push(currentSection)
+					} else if (currentSection) {
+						// To jest pytanie/kryterium (np. "1.1.1", "1.1.14", "2.1.3")
+						currentSection.content.push(`${idRaw} ${text}`)
+					}
+				}
+				return groupedData
+			} else {
+				console.log('No data found in Main Template.')
 				return []
 			}
-		} else {
-			console.log(`Używam STAREJ logiki pobierania danych (z text_id) dla szablonu ID: ${id}`)
-			try {
-				const response = await fetch(
-					`https://sheets.googleapis.com/v4/spreadsheets/${textId}/values/${encodeURIComponent(SHEET_ID)}!A2:E`,
-
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					}
-				)
-
-				const result = await response.json()
-
-				if (result.values && result.values.length > 0) {
-					const data = result.values.map(row => ({
-						name: row[0], // Tytuł tabeli
-
-						content: row[1] ? row[1].split(';').map(item => item.trim()) : [], // Reszta danych w wierszu
-					}))
-
-					return data // Zwracamy dane w całości
-				} else {
-					console.log('No data found.')
-
-					return []
-				}
-			} catch (error) {
-				console.error('Error fetching data from sheet:', error)
-				return []
-			}
+		} catch (error) {
+			console.error('Error fetching data from sheet:', error)
+			return []
 		}
 	}
 
@@ -1192,7 +1163,7 @@ const DetailScreen = () => {
 						<View className='items-center mt-10 mb-20'>
 							{sendCount > 0 ? (
 								<Text className='text-gray-700 font-semibold'>
-									Wysłano danych dla tej kategorii: {sendCount} raz(y)
+									Wysłano danych dla tej kategorii: {sendCount} {sendCount === 1 ? 'raz' : 'razy'}
 								</Text>
 							) : (
 								<Text className='text-gray-700 font-semibold'>Nie wysłano jeszcze danych dla tej kategorii</Text>

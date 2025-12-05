@@ -69,11 +69,11 @@ const templates = [
 		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8',
 	},
 	{
-		id: '11', // Kolejny wolny numer
-		name: 'Szkoła - Julia', // Nazwa widoczna w apce
-		templateKey: 'szkola-julia', // WAŻNE: To musi być to samo co w J1 i w konfiguracja.js
-		fileId: '164rvHjfeQVKqpKm_gUmS4macG1dMesmXGJNBRATZhJk', // ID Szablonu Głównego
-		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8', // ID Szablonu Aplikacji
+		id: '11',
+		name: 'Szkoła - Julia',
+		templateKey: 'szkola-julia',
+		fileId: '164rvHjfeQVKqpKm_gUmS4macG1dMesmXGJNBRATZhJk',
+		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8',
 	},
 ]
 
