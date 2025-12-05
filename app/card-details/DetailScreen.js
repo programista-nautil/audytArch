@@ -259,9 +259,20 @@ const DetailScreen = () => {
 					return // Unikaj przepełnienia tablicy
 				}
 
-				const splitResponse = response.split(',')
-				updatedTemplate[rowIndex][2] = splitResponse[0]?.trim() || '' // Wymagania spełnione
-				updatedTemplate[rowIndex][3] = splitResponse[1]?.trim() || '' // Ocena stanu istniejącego
+				let status = ''
+				let comment = ''
+
+				const firstCommaIndex = response.indexOf(',')
+
+				if (firstCommaIndex !== -1) {
+					status = response.substring(0, firstCommaIndex).trim()
+					comment = response.substring(firstCommaIndex + 1).trim()
+				} else {
+					status = response.trim()
+				}
+
+				updatedTemplate[rowIndex][2] = status || '' // Wymagania spełnione
+				updatedTemplate[rowIndex][3] = comment || '' // Ocena stanu istniejącego
 
 				rowIndex++ // Przejdź do następnego wiersza
 			})
