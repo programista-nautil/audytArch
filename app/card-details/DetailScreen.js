@@ -26,6 +26,7 @@ import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
+import * as ImageManipulator from 'expo-image-manipulator'
 
 const SAFE_MAX_ROW_LIMIT = 100
 
@@ -60,11 +61,7 @@ const DetailScreen = () => {
 	const route = useRoute()
 	const { id, title } = route.params
 
-	const params = useLocalSearchParams()
-	const { header, link } = params
-
 	const [currentId_textid, setCurrentId_textid] = useState('')
-	const [isOnline, setIsOnline] = useState(true)
 
 	const [takenPhotos, setTakenPhotos] = useState({})
 
@@ -990,13 +987,32 @@ const DetailScreen = () => {
 		setCapturedPhoto(null) // Czyścimy stan, co spowoduje powrót do widoku kamery
 	}
 
+	const compressImage = async uri => {
+		try {
+			const manipResult = await ImageManipulator.manipulateAsync(
+				uri,
+				[{ resize: { width: 1600 } }], // Zmniejszamy szerokość do 1600px (proporcje zachowane)
+				{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Jakość 70%, format JPEG
+			)
+			console.log('Zdjęcie skompresowane. Nowy URI:', manipResult.uri)
+			return manipResult.uri
+		} catch (error) {
+			console.error('Błąd kompresji zdjęcia:', error)
+			return uri // W razie błędu zwróć oryginał
+		}
+	}
+
 	const uploadPhoto = async (photo, name, index) => {
 		try {
 			const token = (await GoogleSignin.getTokens()).accessToken
 			GDrive.setAccessToken(token)
 			GDrive.init()
 
-			const base64 = await RNFetchBlob.fs.readFile(`file://${photo.path}`, 'base64')
+			const photoUri = `file://${photo.path}`
+			const compressedUri = await compressImage(photoUri)
+			const cleanPath = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`
+
+			const base64 = await RNFetchBlob.fs.readFile(cleanPath, 'base64')
 			const result = await GDrive.files.createFileMultipart(
 				base64,
 				'image/jpeg',
