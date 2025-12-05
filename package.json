@@ -24,6 +24,7 @@
     "expo-constants": "~16.0.2",
     "expo-crypto": "~13.0.2",
     "expo-dev-client": "~4.0.29",
+    "expo-image-manipulator": "~12.0.5",
     "expo-image-picker": "~15.1.0",
     "expo-linking": "~6.3.1",
     "expo-media-library": "~16.0.5",
@@ -33,7 +34,6 @@
     "expo-splash-screen": "~0.27.7",
     "expo-status-bar": "~1.12.1",
     "expo-web-browser": "~13.0.3",
-    "firebase": "^10.7.0",
     "google-spreadsheet": "^4.1.1",
     "i": "^0.3.7",
     "nativewind": "^4.1.23",
@@ -57,8 +57,7 @@
     "rn-fetch-blob": "^0.12.0",
     "sharp": "^0.32.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "~5.3.3",
-    "expo-image-manipulator": "~12.0.5"
+    "typescript": "~5.3.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
