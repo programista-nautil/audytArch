@@ -5,8 +5,12 @@ import { Stack } from 'expo-router'
 import Welcome from '../components/home/welcome/Welcome'
 import Popularjobs from '../components/home/popular/Popularjobs'
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
+import { useRouter } from 'expo-router'
+import { useOfflineQueue } from '../hooks/useOfflineQueue'
 
 const HomeScreen = () => {
+	const router = useRouter()
+	const { count } = useOfflineQueue()
 	const [error, setError] = useState()
 	const [userInfo, setUserInfo] = useState()
 
@@ -49,6 +53,16 @@ const HomeScreen = () => {
 					headerShadowVisible: false,
 					headerTitle: 'Audyt Architektoniczny',
 					headerTitleAlign: 'center',
+					headerRight: () => (
+						<TouchableOpacity onPress={() => router.push('/sync')} className='mr-4 p-2 relative'>
+							<Feather name='refresh-cw' size={24} color={count > 0 ? '#3B82F6' : '#9CA3AF'} />
+							{count > 0 && (
+								<View className='absolute top-0 right-0 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center border-2 border-white'>
+									<Text className='text-white text-[10px] font-bold'>{count}</Text>
+								</View>
+							)}
+						</TouchableOpacity>
+					),
 				}}
 			/>
 

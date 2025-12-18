@@ -27,8 +27,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
 import * as ImageManipulator from 'expo-image-manipulator'
+import NetInfo from '@react-native-community/netinfo'
+import { executeUpload, getSheetMetadata } from '../../services/googleSheets'
 
 const SAFE_MAX_ROW_LIMIT = 100
+
+const QUEUE_STORAGE_KEY = '@Audit_Offline_Queue'
 
 //odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
 const retrieveData = async () => {
@@ -57,6 +61,90 @@ const DetailScreen = () => {
 	const [isLoading, setIsLoading] = useState(true)
 
 	const [sendCount, setSendCount] = useState(0)
+
+	const [isOnline, setIsOnline] = useState(true)
+
+	useEffect(() => {
+		const unsubscribe = NetInfo.addEventListener(state => {
+			setIsOnline(state.isConnected && state.isInternetReachable)
+			if (state.isConnected && state.isInternetReachable) {
+				processQueue()
+			}
+		})
+		return () => unsubscribe()
+	}, [])
+
+	const addToOfflineQueue = async payload => {
+		try {
+			const existingQueue = await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
+			const queue = existingQueue ? JSON.parse(existingQueue) : []
+
+			queue.push({
+				id: Date.now().toString(),
+				data: payload,
+				timestamp: new Date().toISOString(),
+				attempts: 0,
+			})
+
+			await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
+			await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue))
+
+			Alert.alert(
+				'Tryb Offline',
+				'Brak połączenia. Dane zostały zapisane lokalnie i zostaną wysłane automatycznie po odzyskaniu sieci.'
+			)
+		} catch (error) {
+			console.error('Błąd zapisu w kolejce:', error)
+		}
+	}
+
+	const processQueue = async () => {
+		const existingQueue = await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
+		if (!existingQueue) return
+
+		const queue = JSON.parse(existingQueue)
+		if (queue.length === 0) return
+
+		console.log(`Przetwarzanie kolejki offline: ${queue.length} elementów`)
+
+		const remainingQueue = []
+		const tokens = await GoogleSignin.getTokens()
+		const accessToken = tokens.accessToken
+
+		for (const item of queue) {
+			try {
+				await executeUpload(item.data, accessToken)
+				console.log(`Zsynchronizowano element: ${item.id}`)
+			} catch (error) {
+				console.error(`Nieudana synchronizacja elementu ${item.id}:`, error)
+				item.attempts += 1
+				if (item.attempts < 5) remainingQueue.push(item) // Retries
+			}
+		}
+
+		await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remainingQueue))
+	}
+
+	const executeUpload = async (payload, accessToken) => {
+		const { spreadsheetId, sheetName, finalData, templateCount, sheetId } = payload
+
+		// 1. Sprawdź ostatni wiersz
+		const lastRow = await getLastRowIndex(spreadsheetId, sheetName, accessToken)
+
+		// 2. Append Data
+		const appendRange = `${sheetName}!A${lastRow + 1}`
+		await fetch(
+			`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED`,
+			{
+				method: 'POST',
+				headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+				body: JSON.stringify({ values: finalData }),
+			}
+		)
+
+		// 3. Fast Styles
+		await fastCopyStyles(spreadsheetId, sheetId, templateCount, lastRow + 1, accessToken)
+	}
 
 	const route = useRoute()
 	const { id, title } = route.params
@@ -586,87 +674,79 @@ const DetailScreen = () => {
 		return result.values ? result.values.length : 0
 	}
 
+	// Dodaj tę funkcję pomocniczą wewnątrz komponentu DetailScreen do czyszczenia pól
+	const resetFormFields = () => {
+		setComments(elements.map(() => ({}))) // Czyści wszystkie komentarze
+		setSwitchValuesContent(elements.map(() => Array(3).fill(false))) // Resetuje przyciski
+		setOpenSections({}) // Zamyka wszystkie sekcje
+		setTakenPhotos({}) // Usuwa miniatury zdjęć z widoku
+		setUploadStatuses(Array(elements.length).fill(null)) // Resetuje statusy uploadu
+	}
+
 	const handleSubmit = async () => {
 		if (isSubmitting) return
 		setIsSubmitting(true)
 
 		try {
-			const tokens = await GoogleSignin.getTokens()
-			const accessToken = tokens.accessToken
+			const accessToken = (await GoogleSignin.getTokens()).accessToken
 			const storageData = await retrieveData()
 			const spreadsheetId = storageData.copiedTemplateId
 
-			// 1. Przygotowanie danych (Twoja istniejąca logika)
-			const updatedElements = elements.map((element, index) => {
-				const updatedContent = element.content.map((text, contentIndex) => ({
-					text,
-					state: switchValuesContent[index][contentIndex] || 'Nie dotyczy',
-					comment: comments[index]?.[contentIndex] || '',
-				}))
-				return { ...element, content: updatedContent }
-			})
+			// 1. ODTWORZONA LOGIKA: Mapowanie elementów na format arkusza z uwzględnieniem uwag
+			const valuesForMapping = elements.map((element, index) => {
+				const sectionName = element.name
+				const isOpen = !!openSections[index]
 
-			const valuesToSheet = updatedElements.map(element => {
-				let row = [element.name, openSections[updatedElements.indexOf(element)] ? 'Tak' : 'Nie']
-				element.content.forEach(content => {
-					let val = content.state + (content.comment ? `, ${content.comment}` : '')
-					row.push(val)
+				// Przygotowanie wiersza: Nazwa sekcji, Status otwarcia, a potem odpowiedzi
+				let row = [sectionName, isOpen ? 'Tak' : 'Nie']
+
+				element.content.forEach((_, contentIndex) => {
+					const state = switchValuesContent[index]?.[contentIndex] || 'Nie dotyczy'
+					const commentText = comments[index]?.[contentIndex] || ''
+
+					// Łączenie statusu z komentarzem (np. "Nie, brakuje poręczy")
+					const finalCellValue = commentText ? `${state}, ${commentText}` : state
+					row.push(finalCellValue)
 				})
+
 				return row
 			})
 
-			// Usunięcie nadmiarowego elementu z pierwszego wiersza (Twoja logika)
-			if (valuesToSheet.length > 0 && valuesToSheet[0].length > 2) {
-				valuesToSheet[0].splice(2, 1)
-			}
+			// 2. PRZYGOTOWANIE FINALNYCH DANYCH (zgodnie z Twoim szablonem)
+			// mergeTemplateWithData oczekuje danych w formacie [ [Sekcja, Odp1, Odp2...], [...] ]
+			const updatedTemplate = mergeTemplateWithData(templateValuesState, valuesForMapping)
 
-			// 2. Pobieranie metadanych równolegle dla szybkości
+			// Dodajemy separator '/' na początku nowych danych
+			const finalDataWithSeparator = [['/'], ...updatedTemplate]
+
+			// 3. POBIERANIE METADANYCH (Potrzebne do sheetId i lokalizacji wklejania)
 			const [meta, lastRow] = await Promise.all([
 				getSheetMetadata(spreadsheetId, accessToken, title),
 				getLastRowIndex(spreadsheetId, title, accessToken),
 			])
 
-			// Łączymy dane z szablonem
-			const finalDataToAppend = mergeTemplateWithData(templateValuesState, valuesToSheet)
-			finalDataToAppend.unshift(['/']) // Separator
-
-			// 3. Wysłanie danych
-			const appendRange = `${title}!A${lastRow + 1}`
-			const appendResponse = await fetch(
-				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED`,
-				{
-					method: 'POST',
-					headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-					body: JSON.stringify({ values: finalDataToAppend }),
-				}
-			)
-
-			if (!appendResponse.ok) throw new Error('Błąd podczas appendData')
-
-			// 4. OPTYMALIZACJA: Kopiowanie stylów JEDNYM żądaniem bez pobierania GridData
-			// Obliczamy zakresy:
-			// Źródło stylów: A2:Z(liczba_wierszy_szablonu + 1)
-			// Cel: od miejsca gdzie właśnie dodaliśmy dane
-			await fastCopyStyles(
+			const payload = {
 				spreadsheetId,
-				meta.sheetId,
-				templateValuesState.length,
-				lastRow + 1, // +1 bo dodaliśmy '/'
-				accessToken
-			)
+				sheetName: title,
+				sheetId: meta.sheetId,
+				finalData: finalDataWithSeparator,
+				templateCount: updatedTemplate.length,
+			}
 
-			// 5. Aktualizacja liczników
-			const storageKey = await getCountStorageKey()
-			const storedData = await AsyncStorage.getItem(storageKey)
-			let counts = storedData ? JSON.parse(storedData) : {}
-			counts[title] = (counts[title] || 0) + 1
-			await AsyncStorage.setItem(storageKey, JSON.stringify(counts))
-
-			setSendCount(counts[title])
-			Alert.alert('Sukces', 'Dane zostały zapisane.')
+			// 4. WYBÓR ŚCIEŻKI: ONLINE / OFFLINE
+			if (!isOnline) {
+				await addToOfflineQueue(payload)
+				resetFormFields() // Czyścimy pola po dodaniu do kolejki
+			} else {
+				const accessToken = (await GoogleSignin.getTokens()).accessToken
+				await executeUpload(payload, accessToken) // <--- TUTAJ
+				Alert.alert('Sukces', 'Dane wysłane pomyślnie.')
+				resetFormFields()
+			}
 		} catch (error) {
-			console.error('Błąd zapisu:', error)
-			Alert.alert('Błąd', 'Nie udało się zapisać danych.')
+			console.error('Błąd podczas procesowania formularza:', error)
+			// Jeśli błąd wystąpił podczas wysyłki online, awaryjnie dodaj do kolejki
+			Alert.alert('Błąd połączenia', 'Wystąpił problem z wysyłką. Dane zostały zapisane w kolejce do ponownej próby.')
 		} finally {
 			setIsSubmitting(false)
 		}
