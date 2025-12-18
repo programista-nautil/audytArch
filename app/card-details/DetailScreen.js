@@ -564,180 +564,149 @@ const DetailScreen = () => {
 		}
 	}
 
+	const getSheetMetadata = async (spreadsheetId, accessToken, title) => {
+		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
+		const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
+		const data = await response.json()
+
+		const targetSheet = data.sheets?.find(sheet => sheet.properties.title === title)
+		if (!targetSheet) throw new Error(`Arkusz ${title} nie został znaleziony.`)
+
+		return {
+			sheetId: targetSheet.properties.sheetId,
+			sheetName: targetSheet.properties.title,
+		}
+	}
+
+	// OPTYMALIZACJA: Szybsze sprawdzanie ostatniego wiersza
+	const getLastRowIndex = async (spreadsheetId, sheetName, accessToken) => {
+		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A:A?fields=values`
+		const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
+		const result = await response.json()
+		return result.values ? result.values.length : 0
+	}
+
 	const handleSubmit = async () => {
+		if (isSubmitting) return
 		setIsSubmitting(true)
+
 		try {
-			const accessToken = (await GoogleSignin.getTokens()).accessToken
+			const tokens = await GoogleSignin.getTokens()
+			const accessToken = tokens.accessToken
+			const storageData = await retrieveData()
+			const spreadsheetId = storageData.copiedTemplateId
 
+			// 1. Przygotowanie danych (Twoja istniejąca logika)
 			const updatedElements = elements.map((element, index) => {
-				const updatedContent = element.content.map((text, contentIndex) => {
-					const state = switchValuesContent[index][contentIndex]
-					let updatedText = text
-
-					if (state === 'Tak' || state === 'Nie' || state === 'Nie dotyczy' || state === '') {
-						const lowercaseState = state.toLowerCase()
-						const pattern = new RegExp(`\\b${state}\\b`, 'gi')
-						updatedText = updatedText.replace(pattern, lowercaseState)
-					}
-
-					return {
-						text: updatedText,
-						state: state !== undefined ? state : 'Nie dotyczy',
-						comment: comments[index]?.[contentIndex] || '', // Include the corresponding comment from the state
-					}
-				})
-
-				return {
-					...element,
-					isOpen: !!openSections[index],
-					content: updatedContent,
-				}
+				const updatedContent = element.content.map((text, contentIndex) => ({
+					text,
+					state: switchValuesContent[index][contentIndex] || 'Nie dotyczy',
+					comment: comments[index]?.[contentIndex] || '',
+				}))
+				return { ...element, content: updatedContent }
 			})
 
-			const getSheetMetadata = async () => {
-				const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
-				const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
-
-				try {
-					const response = await fetch(url, {
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					})
-
-					if (!response.ok) {
-						console.error('HTTP Error:', response.status, await response.text())
-						throw new Error('Failed to fetch sheet metadata.')
-					}
-
-					const data = await response.json()
-
-					// Processing response to find the sheetId
-					const sheets = data.sheets
-					if (!sheets || sheets.length === 0) {
-						console.error('No sheets found in the received data.')
-						return null
-					}
-
-					const targetSheetTitle = title
-
-					const targetSheet = sheets.find(sheet => sheet.properties.title === targetSheetTitle)
-					if (!targetSheet) {
-						console.error(`Sheet titled ${targetSheetTitle}  not found.`)
-						return null
-					}
-
-					const sheetId = targetSheet.properties.sheetId
-					const sheetName = targetSheet.properties.title
-					return { sheetId, sheetName }
-				} catch (error) {
-					console.error('Error fetching sheet metadata:', error)
-					return null
-				}
-			}
-
-			async function getRowCount(spreadsheetId, sheetName) {
-				const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-
-				try {
-					const response = await fetch(url, {
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					})
-					const result = await response.json()
-
-					if (response.ok) {
-						const totalRows = result.values ? result.values.length : 0
-
-						if (!result.values) {
-							return 0 // Brak danych w kolumnie
-						}
-
-						// Szukamy pierwszego pustego wiersza
-						for (let i = 0; i < result.values.length; i++) {
-							if (result.values[i].length === 0 || result.values[i][0] === '' || result.values[i][0] == null) {
-								return i // Zwracamy liczbę wierszy do pierwszego pustego
-							}
-						}
-
-						return totalRows // Jeśli nie ma pustego wiersza, zwracamy całkowitą liczbę wierszy
-					} else {
-						console.error('API Error:', result.error)
-						return 0
-					}
-				} catch (error) {
-					console.error('Error fetching row count:', error)
-					return 0
-				}
-			}
-
-			const data = {
-				switchValues: switchValues.map(value => (value ? 'Tak' : 'Nie')),
-				elements: updatedElements,
-				comment: comment,
-			}
-
-			const values = updatedElements.map(element => {
-				// Przygotowanie wiersza do przesłania do arkusza
-				let row = [element.name, element.isOpen ? 'Tak' : 'Nie']
+			const valuesToSheet = updatedElements.map(element => {
+				let row = [element.name, openSections[updatedElements.indexOf(element)] ? 'Tak' : 'Nie']
 				element.content.forEach(content => {
-					let contentValue = content.state ? content.state : 'Nie dotyczy'
-					if (content.comment) {
-						contentValue += `, ${content.comment}`
-					}
-					row.push(contentValue)
+					let val = content.state + (content.comment ? `, ${content.comment}` : '')
+					row.push(val)
 				})
 				return row
 			})
 
-			// Fetching metadata and row counts
-			const spreadsheetId = (await retrieveData()).copiedTemplateId
-			const sheetId = (await getSheetMetadata()).sheetId
-			const sheetName = (await getSheetMetadata()).sheetName
-			const rowCount = await getRowCount(spreadsheetId, sheetName)
+			// Usunięcie nadmiarowego elementu z pierwszego wiersza (Twoja logika)
+			if (valuesToSheet.length > 0 && valuesToSheet[0].length > 2) {
+				valuesToSheet[0].splice(2, 1)
+			}
 
-			// Prepare data for appending
-			const startRow = rowCount.lastRowWithData + 1 // The row after the last one with data
-			const range = `A${startRow}`
+			// 2. Pobieranie metadanych równolegle dla szybkości
+			const [meta, lastRow] = await Promise.all([
+				getSheetMetadata(spreadsheetId, accessToken, title),
+				getLastRowIndex(spreadsheetId, title, accessToken),
+			])
 
-			//const templateValues = await fetchTemplate(rowCount)
+			// Łączymy dane z szablonem
+			const finalDataToAppend = mergeTemplateWithData(templateValuesState, valuesToSheet)
+			finalDataToAppend.unshift(['/']) // Separator
 
-			const updatedTemplate = mergeTemplateWithData(templateValuesState, values)
+			// 3. Wysłanie danych
+			const appendRange = `${title}!A${lastRow + 1}`
+			const appendResponse = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED`,
+				{
+					method: 'POST',
+					headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+					body: JSON.stringify({ values: finalDataToAppend }),
+				}
+			)
 
-			console.log(templateValuesState.length)
+			if (!appendResponse.ok) throw new Error('Błąd podczas appendData')
 
-			const rowCountBeforeAdding = await getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken)
+			// 4. OPTYMALIZACJA: Kopiowanie stylów JEDNYM żądaniem bez pobierania GridData
+			// Obliczamy zakresy:
+			// Źródło stylów: A2:Z(liczba_wierszy_szablonu + 1)
+			// Cel: od miejsca gdzie właśnie dodaliśmy dane
+			await fastCopyStyles(
+				spreadsheetId,
+				meta.sheetId,
+				templateValuesState.length,
+				lastRow + 1, // +1 bo dodaliśmy '/'
+				accessToken
+			)
 
-			//const templateRowCount = templateValues.length
-
-			console.log('Szablon danych:', templateValuesState)
-			console.log('Dane użytkownika:', values)
-
-			// Append new data
-			await appendData(spreadsheetId, sheetName, updatedTemplate, accessToken)
-
-			// Adjust and execute the copy of styles
-			await copyStylesAndData(spreadsheetId, sheetId, rowCount, accessToken, sheetName)
-
+			// 5. Aktualizacja liczników
 			const storageKey = await getCountStorageKey()
 			const storedData = await AsyncStorage.getItem(storageKey)
 			let counts = storedData ? JSON.parse(storedData) : {}
-
-			// Inkrementacja dla bieżącej kategorii
-			const currentCount = counts[title] || 0
-			const newCount = currentCount + 1
-			counts[title] = newCount
-
+			counts[title] = (counts[title] || 0) + 1
 			await AsyncStorage.setItem(storageKey, JSON.stringify(counts))
-			setSendCount(newCount)
-			Alert.alert('Sukces', 'Dane zostały poprawnie wysłane.')
+
+			setSendCount(counts[title])
+			Alert.alert('Sukces', 'Dane zostały zapisane.')
 		} catch (error) {
-			console.error('Błąd podczas wysyłania formularza:', error)
+			console.error('Błąd zapisu:', error)
+			Alert.alert('Błąd', 'Nie udało się zapisać danych.')
 		} finally {
-			setIsSubmitting(false) // 👉 odblokuj przycisk po zakończeniu
+			setIsSubmitting(false)
 		}
-		//await checkAndRemoveExcessRecords(spreadsheetId, sheetName, accessToken, rowCountBeforeAdding, templateRowCount)
+	}
+
+	async function fastCopyStyles(spreadsheetId, sheetId, templateRowCount, startRowIndex, accessToken) {
+		const requests = [
+			// Kopiowanie Nagłówka (Wiersz 1 z obrazkiem/logo)
+			{
+				copyPaste: {
+					source: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 20 },
+					destination: { sheetId, startRowIndex: startRowIndex, endRowIndex: startRowIndex + 1 },
+					pasteType: 'PASTE_NORMAL',
+				},
+			},
+			// Kopiowanie Formatowania dla całej reszty wierszy
+			{
+				copyPaste: {
+					source: {
+						sheetId,
+						startRowIndex: 1,
+						endRowIndex: templateRowCount + 1,
+						startColumnIndex: 0,
+						endColumnIndex: 20,
+					},
+					destination: {
+						sheetId,
+						startRowIndex: startRowIndex + 1,
+						endRowIndex: startRowIndex + 1 + templateRowCount,
+					},
+					pasteType: 'PASTE_FORMAT', // Kopiuje tylko kolory, obramowania, walidację danych
+				},
+			},
+		]
+
+		await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+			method: 'POST',
+			headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+			body: JSON.stringify({ requests }),
+		})
 	}
 
 	async function appendData(spreadsheetId, sheetName, values, accessToken) {
