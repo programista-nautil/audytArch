@@ -44,9 +44,9 @@ const Welcome = () => {
 			const today = new Date()
 			const templateDate = new Date(templateData.creationDate)
 			// Porównujemy daty bez uwzględniania czasu
-			if (templateDate.toDateString() !== today.toDateString()) {
-				Alert.alert('Uwaga', 'Wybrany szablon nie jest z dzisiaj. Upewnij się, że pracujesz na poprawnym pliku.')
-			}
+			// if (templateDate.toDateString() !== today.toDateString()) {
+			// 	Alert.alert('Uwaga', 'Wybrany szablon nie jest z dzisiaj. Upewnij się, że pracujesz na poprawnym pliku.')
+			// }
 		}
 	}
 

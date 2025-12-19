@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react' // <--- USUNIĘTO useFocusEffect stąd
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView } from 'react-native'
-import { Stack, useRouter } from 'expo-router'
+import { Stack, useRouter, useFocusEffect } from 'expo-router' // <--- DODANO useFocusEffect tutaj
 import { Feather } from '@expo/vector-icons'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
@@ -10,6 +10,14 @@ const SyncScreen = () => {
 	const { queue, isOnline, removeItem, loadQueue } = useOfflineQueue()
 	const [isSyncing, setIsSyncing] = useState(false)
 	const router = useRouter()
+
+	// Teraz useFocusEffect zadziała poprawnie, bo jest pobrany z expo-router
+	useFocusEffect(
+		useCallback(() => {
+			console.log('Otwarto ekran synchronizacji, odświeżam kolejkę...')
+			loadQueue()
+		}, [loadQueue])
+	)
 
 	const handleSyncAll = async () => {
 		if (!isOnline) {
@@ -22,19 +30,17 @@ const SyncScreen = () => {
 			const tokens = await GoogleSignin.getTokens()
 
 			// Przetwarzamy kolejkę po kolei
-			// Robimy kopię kolejki, aby uniknąć problemów z mutacją podczas pętli
 			const queueToProcess = [...queue]
 
 			for (const item of queueToProcess) {
 				try {
+					console.log(`Wysyłanie elementu: ${item.data.sheetName}...`)
 					// Wywołujemy serwis dla każdego elementu z kolejki
 					await executeUpload(item.data, tokens.accessToken)
 					// Jeśli się udało - usuwamy z AsyncStorage
 					await removeItem(item.id)
 				} catch (e) {
 					console.error(`Błąd synchronizacji elementu ${item.id}:`, e)
-					// Jeśli jeden element zawiedzie, przechodzimy do następnego
-					// Możesz tu dodać Alert, jeśli błąd jest krytyczny
 				}
 			}
 

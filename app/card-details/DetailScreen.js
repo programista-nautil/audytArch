@@ -1,162 +1,85 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
-	ScrollView,
 	Text,
 	View,
 	Switch,
 	Alert,
 	StyleSheet,
-	Pressable,
 	Image,
 	BackHandler,
 	ActivityIndicator,
 	TouchableOpacity,
-	TextInput as NativeTextInput,
 	SafeAreaView,
 	Modal,
 	FlatList,
 } from 'react-native'
-import { Feather } from '@expo/vector-icons'
-import { useNavigation, useRoute, useIsFocused, useFocusEffect } from '@react-navigation/native'
+import { Feather, FontAwesome5 } from '@expo/vector-icons'
+import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
-import { FontAwesome5 } from '@expo/vector-icons'
-import { useCameraPermission, useCameraDevice, Camera, PhotoFile } from 'react-native-vision-camera'
+import { useCameraPermission, useCameraDevice, Camera } from 'react-native-vision-camera'
 import RNFetchBlob from 'rn-fetch-blob'
 import GDrive from 'react-native-google-drive-api-wrapper'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Stack, router, useLocalSearchParams } from 'expo-router'
+import { Stack, router } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
 import * as ImageManipulator from 'expo-image-manipulator'
-import NetInfo from '@react-native-community/netinfo'
-import { executeUpload, getSheetMetadata } from '../../services/googleSheets'
+import { useOfflineQueue } from '../../hooks/useOfflineQueue' // <--- 1. IMPORT HOOKA
+import { executeUpload, getSheetMetadata } from '../../services/googleSheets' // <--- 2. IMPORT SERWISU
 
 const SAFE_MAX_ROW_LIMIT = 100
 
-const QUEUE_STORAGE_KEY = '@Audit_Offline_Queue'
-
-//odbieranie danych z AsyncStorage - szablon arkusza i folder zdjęć
+// Pobieranie danych konfiguracyjnych
 const retrieveData = async () => {
 	try {
 		const photosFolderId = await AsyncStorage.getItem('@PhotosFolderId')
 		const copiedTemplateId = await AsyncStorage.getItem('@CopiedTemplateId')
 		const textId = await AsyncStorage.getItem('@SelectedTextId')
 		const id = await AsyncStorage.getItem('@Id')
-		if (photosFolderId !== null && copiedTemplateId !== null && textId !== null) {
-			// Use the retrieved data as needed
+		if (photosFolderId && copiedTemplateId) {
 			return { photosFolderId, copiedTemplateId, textId, id }
 		}
-		console.log({ id, title })
 	} catch (error) {
 		console.error('Failed to retrieve the data from storage', error)
 	}
 }
 
 const DetailScreen = () => {
-	const [templateValuesState, setTemplateValuesState] = useState([])
+	// --- HOOKI I STANY ---
+	const { addToQueue, isOnline } = useOfflineQueue() // <--- 3. UŻYCIE HOOKA
 	const navigation = useNavigation()
 	const isFocused = useIsFocused()
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [isCapturing, setIsCapturing] = useState(false)
-	const [isUploading, setIsUploading] = useState(false)
-	const [isLoading, setIsLoading] = useState(true)
-
-	const [sendCount, setSendCount] = useState(0)
-
-	const [isOnline, setIsOnline] = useState(true)
-
-	useEffect(() => {
-		const unsubscribe = NetInfo.addEventListener(state => {
-			setIsOnline(state.isConnected && state.isInternetReachable)
-			if (state.isConnected && state.isInternetReachable) {
-				processQueue()
-			}
-		})
-		return () => unsubscribe()
-	}, [])
-
-	const addToOfflineQueue = async payload => {
-		try {
-			const existingQueue = await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
-			const queue = existingQueue ? JSON.parse(existingQueue) : []
-
-			queue.push({
-				id: Date.now().toString(),
-				data: payload,
-				timestamp: new Date().toISOString(),
-				attempts: 0,
-			})
-
-			await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
-			await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue))
-
-			Alert.alert(
-				'Tryb Offline',
-				'Brak połączenia. Dane zostały zapisane lokalnie i zostaną wysłane automatycznie po odzyskaniu sieci.'
-			)
-		} catch (error) {
-			console.error('Błąd zapisu w kolejce:', error)
-		}
-	}
-
-	const processQueue = async () => {
-		const existingQueue = await AsyncStorage.getItem(QUEUE_STORAGE_KEY)
-		if (!existingQueue) return
-
-		const queue = JSON.parse(existingQueue)
-		if (queue.length === 0) return
-
-		console.log(`Przetwarzanie kolejki offline: ${queue.length} elementów`)
-
-		const remainingQueue = []
-		const tokens = await GoogleSignin.getTokens()
-		const accessToken = tokens.accessToken
-
-		for (const item of queue) {
-			try {
-				await executeUpload(item.data, accessToken)
-				console.log(`Zsynchronizowano element: ${item.id}`)
-			} catch (error) {
-				console.error(`Nieudana synchronizacja elementu ${item.id}:`, error)
-				item.attempts += 1
-				if (item.attempts < 5) remainingQueue.push(item) // Retries
-			}
-		}
-
-		await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remainingQueue))
-	}
-
-	const executeUpload = async (payload, accessToken) => {
-		const { spreadsheetId, sheetName, finalData, templateCount, sheetId } = payload
-
-		// 1. Sprawdź ostatni wiersz
-		const lastRow = await getLastRowIndex(spreadsheetId, sheetName, accessToken)
-
-		// 2. Append Data
-		const appendRange = `${sheetName}!A${lastRow + 1}`
-		await fetch(
-			`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED`,
-			{
-				method: 'POST',
-				headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-				body: JSON.stringify({ values: finalData }),
-			}
-		)
-
-		// 3. Fast Styles
-		await fastCopyStyles(spreadsheetId, sheetId, templateCount, lastRow + 1, accessToken)
-	}
-
 	const route = useRoute()
 	const { id, title } = route.params
 
-	const [currentId_textid, setCurrentId_textid] = useState('')
+	const [templateValuesState, setTemplateValuesState] = useState([])
+	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [isLoading, setIsLoading] = useState(true)
+	const [sendCount, setSendCount] = useState(0)
 
+	// Aparat i zdjęcia
+	const [isCapturing, setIsCapturing] = useState(false)
+	const [isUploading, setIsUploading] = useState(false)
 	const [takenPhotos, setTakenPhotos] = useState({})
+	const [capturedPhoto, setCapturedPhoto] = useState(null)
+	const [isActive, setIsActive] = useState(false)
+	const [isCameraReady, setIsCameraReady] = useState(false)
+	const [selectedElementName, setSelectedElementName] = useState('')
+	const [selectedElementIndex, setSelectedElementIndex] = useState(null)
+	const { hasPermission, requestPermission } = useCameraPermission()
+	const device = useCameraDevice('back')
+	const cameraRef = useRef(null)
+
+	// Formularz
+	const [elements, setElements] = useState([])
+	const [comments, setComments] = useState([])
+	const [switchValuesContent, setSwitchValuesContent] = useState([])
+	const [openSections, setOpenSections] = useState({})
+	const [uploadStatuses, setUploadStatuses] = useState([])
+
+	// --- EFEKTY (Licznik, BackHandler, Nawigacja) ---
 
 	const getCountStorageKey = async () => {
-		const id = await AsyncStorage.getItem('@Id') // ID szablonu/audytu
-		const folderId = await AsyncStorage.getItem('@PhotosFolderId') // Lub inny unikalny ID audytu
-		// Używamy folderId jako unikalnego identyfikatora konkretnego audytu (bo ID szablonu jest wspólne dla wielu audytów tego typu)
+		const folderId = await AsyncStorage.getItem('@PhotosFolderId')
 		return `@SendCounts_${folderId}`
 	}
 
@@ -165,258 +88,16 @@ const DetailScreen = () => {
 			try {
 				const storageKey = await getCountStorageKey()
 				const storedData = await AsyncStorage.getItem(storageKey)
-
-				setSendCount(0)
-
 				if (storedData) {
 					const counts = JSON.parse(storedData)
-					if (counts[title]) {
-						setSendCount(counts[title])
-					} else {
-						setSendCount(0)
-					}
+					setSendCount(counts[title] || 0)
 				}
 			} catch (error) {
 				console.error('Błąd ładowania licznika:', error)
 			}
 		}
-
-		loadSendCount()
+		if (isFocused) loadSendCount()
 	}, [title, isFocused])
-
-	useEffect(() => {
-		const fetchId = async () => {
-			const data = await retrieveData()
-			setCurrentId_textid(data.textId) // Use a default empty string if textId is not available
-			console.log('Current ID:', data.textId)
-		}
-
-		if (isFocused) {
-			fetchId()
-		}
-	}, [isFocused])
-
-	const SHEET_ID = title
-
-	async function fetchDataFromSheet(storageData, token) {
-		const { copiedTemplateId: spreadsheetId } = storageData
-
-		try {
-			// Pobieramy kolumny A (Lp.) i B (Kategoria/kryterium)
-			const response = await fetch(
-				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SHEET_ID)}!A2:B`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			)
-
-			const result = await response.json()
-
-			if (result.values && result.values.length > 0) {
-				const groupedData = []
-				let currentSection = null
-
-				for (const row of result.values) {
-					const idRaw = row[0] ? row[0].trim() : ''
-					const text = row[1]
-
-					// Sprawdzenie końca tabeli
-					if (idRaw === '/' || (!idRaw && !text)) {
-						console.log('Koniec szablonu (napotkano separator lub pusty wiersz).')
-						break
-					}
-
-					if (!idRaw || !text) continue
-
-					// --- NOWA LOGIKA ZABEZPIECZAJĄCA ---
-
-					// 1. Normalizacja: Usuń kropkę z końca, jeśli tam jest (zamienia "2.1." na "2.1")
-					const normalizedId = idRaw.replace(/\.$/, '')
-
-					// 2. Podział na części: Dzielimy po kropce i filtrujemy puste (na wypadek literówek typu "2..1")
-					// Przykład: "2.1.14" -> ["2", "1", "14"] -> hierarchyLevel = 3
-					// Przykład: "2.1"    -> ["2", "1"]       -> hierarchyLevel = 2
-					const hierarchyParts = normalizedId.split('.').filter(part => part.trim() !== '')
-					const hierarchyLevel = hierarchyParts.length
-
-					// 3. Decyzja na podstawie poziomu zagłębienia
-					// Zakładamy, że Sekcje to poziom 1 (np. "1.") i poziom 2 (np. "1.1")
-					// Wszystko głębiej (poziom 3, 4...) to pytania/kryteria
-					const isSectionHeader = hierarchyLevel <= 2
-
-					if (isSectionHeader) {
-						// To jest nagłówek (np. "1. Otoczenie" lub "1.1 Ciągi")
-						currentSection = {
-							name: `${idRaw} ${text} - `, // Używamy oryginalnego idRaw do wyświetlania
-							content: [],
-						}
-
-						// Dodaj "Lokalizacja" tylko dla głównych kategorii (Poziom 1, np. "1.", "2.")
-						if (hierarchyLevel === 1) {
-							currentSection.content.push('Lokalizacja')
-						}
-
-						groupedData.push(currentSection)
-					} else if (currentSection) {
-						// To jest pytanie/kryterium (np. "1.1.1", "1.1.14", "2.1.3")
-						currentSection.content.push(`${idRaw} ${text}`)
-					}
-				}
-				return groupedData
-			} else {
-				console.log('No data found in Main Template.')
-				return []
-			}
-		} catch (error) {
-			console.error('Error fetching data from sheet:', error)
-			return []
-		}
-	}
-
-	//pobieranie szablonu tabeli do uzupełnienia
-	async function fetchTemplateWithBuffer(token, spreadsheetId) {
-		try {
-			const response = await fetch(
-				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SHEET_ID)}!A1:P${SAFE_MAX_ROW_LIMIT}`,
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			)
-			const result = await response.json()
-			return result.values || []
-		} catch (error) {
-			console.error('Błąd podczas pobierania szablonu:', error)
-			return []
-		}
-	}
-
-	function trimTemplateData(values) {
-		if (!values || values.length === 0) return []
-
-		let cutOffIndex = values.length
-
-		// Logika szukania końca danych
-		for (let i = 0; i < values.length; i++) {
-			const firstCell = values[i][0]
-
-			if (firstCell === '/') {
-				cutOffIndex = i
-				break
-			}
-
-			if (!firstCell) {
-				cutOffIndex = i
-				break
-			}
-		}
-
-		// Zwracamy przyciętą tablicę
-		return values.slice(0, cutOffIndex)
-	}
-
-	function mergeTemplateWithData(template, userData) {
-		if (!template || !userData) {
-			console.error('Invalid input: template or userData is undefined')
-			return []
-		}
-
-		// Zacznij od kopii szablonu, aby uniknąć modyfikacji oryginału
-		const updatedTemplate = [...template]
-
-		let rowIndex = 1 // Zaczynamy od pierwszego wiersza danych (pomijamy nagłówki)
-
-		userData.forEach((data, index) => {
-			if (index === 0 && data.length > 2) {
-				data.splice(2, 1) // usuwa trzeci element (czyli drugą odpowiedź)
-			}
-			const sectionTitle = data[0] // Nazwa sekcji
-			const responses = data.slice(1) // Odpowiedzi użytkownika
-
-			// Sprawdzenie, czy bieżący wiersz to nagłówek sekcji
-			while (rowIndex < updatedTemplate.length && updatedTemplate[rowIndex][0].endsWith('-')) {
-				rowIndex++ // Pomijamy nagłówki sekcji
-			}
-
-			responses.forEach((response, colIndex) => {
-				if (rowIndex >= updatedTemplate.length) {
-					return // Unikaj przepełnienia tablicy
-				}
-
-				let status = ''
-				let comment = ''
-
-				const firstCommaIndex = response.indexOf(',')
-
-				if (firstCommaIndex !== -1) {
-					status = response.substring(0, firstCommaIndex).trim()
-					comment = response.substring(firstCommaIndex + 1).trim()
-				} else {
-					status = response.trim()
-				}
-
-				updatedTemplate[rowIndex][2] = status || '' // Wymagania spełnione
-				updatedTemplate[rowIndex][3] = comment || '' // Ocena stanu istniejącego
-
-				rowIndex++ // Przejdź do następnego wiersza
-			})
-		})
-
-		return updatedTemplate
-	}
-
-	// Fetch the template before sending the data
-	const [elements, setElements] = useState([])
-	const [comments, setComments] = useState(Array(elements.length).fill(''))
-	const [comment, setComment] = useState('') // New state variable for comment
-	const [commentIndex, setCommentIndex] = useState(null) // New state variable for comment index
-	const [switchValues, setSwitchValues] = useState(Array(elements.length).fill(false))
-	const [switchValuesContent, setSwitchValuesContent] = useState(
-		Array(elements.length)
-			.fill(null)
-			.map(_ => Array(3).fill(false))
-	)
-	const [openSections, setOpenSections] = useState({})
-	const [uploadStatuses, setUploadStatuses] = useState(Array(elements.length).fill(null))
-	const [capturedPhoto, setCapturedPhoto] = useState(null)
-
-	useEffect(() => {
-		navigation.setOptions({
-			headerTitle: title,
-			headerTitleAlign: 'center',
-			headerTitleStyle: {
-				fontSize: 20,
-				fontWeight: 'bold',
-				color: '#000',
-			},
-			headerStyle: {
-				backgroundColor: '#fff',
-				height: 100,
-			},
-			headerTintColor: '#000',
-			headerLeft: () => (
-				<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-					<FontAwesome5
-						name='arrow-left'
-						size={24}
-						color='#000'
-						onPress={() => {
-							Alert.alert(
-								'Potwierdzenie wyjścia',
-								'Czy na pewno chcesz wrócić do menu głównego? Stracisz wszystkie zaznaczone opcje i przyciski.',
-								[
-									{ text: 'Nie', style: 'cancel' },
-									{ text: 'Tak', onPress: () => navigation.goBack() },
-								]
-							)
-						}}
-					/>
-					<Text style={{ paddingRight: 10 }}></Text>
-				</View>
-			),
-		})
-	}, [navigation, title])
 
 	useEffect(() => {
 		const backAction = () => {
@@ -430,46 +111,93 @@ const DetailScreen = () => {
 		return () => backHandler.remove()
 	}, [])
 
-	const getSheetMetadataEffect = async () => {
-		const spreadsheetId = (await retrieveData()).copiedTemplateId // Twoje ID arkusza
-		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
-		const tokens = await GoogleSignin.getTokens()
-		const accessToken = tokens.accessToken
+	useEffect(() => {
+		navigation.setOptions({
+			headerTitle: title,
+			headerTitleAlign: 'center',
+			headerLeft: () => (
+				<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+					<FontAwesome5
+						name='arrow-left'
+						size={24}
+						color='#000'
+						onPress={() => {
+							Alert.alert('Potwierdzenie wyjścia', 'Czy na pewno chcesz wrócić do menu głównego?', [
+								{ text: 'Nie', style: 'cancel' },
+								{ text: 'Tak', onPress: () => navigation.goBack() },
+							])
+						}}
+					/>
+				</View>
+			),
+		})
+	}, [navigation, title])
 
+	// --- POBIERANIE DANYCH (SZABLON) ---
+
+	async function fetchDataFromSheet(storageData, token) {
+		const { copiedTemplateId: spreadsheetId } = storageData
 		try {
-			const response = await fetch(url, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
+			const response = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(title)}!A2:B`,
+				{ headers: { Authorization: `Bearer ${token}` } }
+			)
+			const result = await response.json()
 
-			if (!response.ok) {
-				console.error('HTTP Error:', response.status, await response.text())
-				throw new Error('Failed to fetch sheet metadata.')
+			if (result.values && result.values.length > 0) {
+				const groupedData = []
+				let currentSection = null
+
+				for (const row of result.values) {
+					const idRaw = row[0] ? row[0].trim() : ''
+					const text = row[1]
+					if (idRaw === '/' || (!idRaw && !text)) break
+					if (!idRaw || !text) continue
+
+					const normalizedId = idRaw.replace(/\.$/, '')
+					const hierarchyLevel = normalizedId.split('.').filter(part => part.trim() !== '').length
+					const isSectionHeader = hierarchyLevel <= 2
+
+					if (isSectionHeader) {
+						currentSection = { name: `${idRaw} ${text} - `, content: [] }
+						if (hierarchyLevel === 1) currentSection.content.push('Lokalizacja')
+						groupedData.push(currentSection)
+					} else if (currentSection) {
+						currentSection.content.push(`${idRaw} ${text}`)
+					}
+				}
+				return groupedData
 			}
-
-			const data = await response.json()
-
-			// Processing response to find the sheetId
-			const sheets = data.sheets
-			if (!sheets || sheets.length === 0) {
-				console.error('No sheets found in the received data.')
-				return null
-			}
-
-			const targetSheet = sheets.find(sheet => sheet.properties.title === title)
-			if (!targetSheet) {
-				console.error(`Sheet titled ${title}  not found.`)
-				return null
-			}
-
-			const sheetId = targetSheet.properties.sheetId
-			const sheetName = targetSheet.properties.title
-			return { sheetId, sheetName, spreadsheetId }
+			return []
 		} catch (error) {
-			console.error('Error fetching sheet metadata:', error)
-			return null
+			console.error('Error fetching data:', error)
+			return []
 		}
+	}
+
+	async function fetchTemplateWithBuffer(token, spreadsheetId) {
+		try {
+			const response = await fetch(
+				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(title)}!A1:P${SAFE_MAX_ROW_LIMIT}`,
+				{ headers: { Authorization: `Bearer ${token}` } }
+			)
+			const result = await response.json()
+			return result.values || []
+		} catch (error) {
+			return []
+		}
+	}
+
+	function trimTemplateData(values) {
+		if (!values || values.length === 0) return []
+		let cutOffIndex = values.length
+		for (let i = 0; i < values.length; i++) {
+			if (values[i][0] === '/' || !values[i][0]) {
+				cutOffIndex = i
+				break
+			}
+		}
+		return values.slice(0, cutOffIndex)
 	}
 
 	useEffect(() => {
@@ -478,646 +206,269 @@ const DetailScreen = () => {
 			try {
 				const [tokens, storageData] = await Promise.all([GoogleSignin.getTokens(), retrieveData()])
 				const accessToken = tokens.accessToken
-
 				const [data, rawTemplateValues] = await Promise.all([
 					fetchDataFromSheet(storageData, accessToken),
 					fetchTemplateWithBuffer(accessToken, storageData.copiedTemplateId),
 				])
-
 				const trimmedTemplateValues = trimTemplateData(rawTemplateValues)
-
-				console.log('Pobrane wiersze (surowe):', rawTemplateValues.length)
-				console.log('Pobrane wiersze (przycięte):', trimmedTemplateValues.length)
 
 				setTemplateValuesState(trimmedTemplateValues)
 				setElements(data)
 				setComments(data.map(() => ''))
-				setSwitchValues(data.map(() => false))
-				setSwitchValuesContent(data.map(() => Array(3).fill(false)))
+				setSwitchValuesContent(data.map(() => Array(10).fill(false))) // Zwiększony bufor
+				setUploadStatuses(Array(data.length).fill(null))
 			} catch (error) {
-				console.error('Błąd podczas pobierania danych:', error)
+				console.error('Błąd init:', error)
 			} finally {
 				setIsLoading(false)
 			}
 		}
-
 		fetchData()
 	}, [])
 
+	// --- LOGIKA FORMULARZA ---
+
+	function mergeTemplateWithData(template, userData) {
+		const updatedTemplate = [...template]
+		let rowIndex = 1
+		userData.forEach((data, index) => {
+			if (index === 0 && data.length > 2) data.splice(2, 1)
+			const responses = data.slice(1)
+			while (rowIndex < updatedTemplate.length && updatedTemplate[rowIndex][0].endsWith('-')) {
+				rowIndex++
+			}
+			responses.forEach(response => {
+				if (rowIndex >= updatedTemplate.length) return
+				let status = '',
+					comment = ''
+				const firstCommaIndex = response.indexOf(',')
+				if (firstCommaIndex !== -1) {
+					status = response.substring(0, firstCommaIndex).trim()
+					comment = response.substring(firstCommaIndex + 1).trim()
+				} else {
+					status = response.trim()
+				}
+				updatedTemplate[rowIndex][2] = status || ''
+				updatedTemplate[rowIndex][3] = comment || ''
+				rowIndex++
+			})
+		})
+		return updatedTemplate
+	}
+
 	const handleToggle = index => {
-		setOpenSections(prevState => ({
-			...prevState,
-			[index]: !prevState[index],
-		}))
+		setOpenSections(prev => ({ ...prev, [index]: !prev[index] }))
 	}
 
 	const handleCommentChange = (index, contentIndex, text) => {
-		setComments(prevState => {
-			const updatedComments = [...prevState]
-			if (!updatedComments[index]) {
-				updatedComments[index] = {}
-			}
-			updatedComments[index][contentIndex] = text
-			return updatedComments
+		setComments(prev => {
+			const updated = [...prev]
+			if (!updated[index]) updated[index] = {}
+			updated[index][contentIndex] = text
+			return updated
 		})
 	}
 
 	const handleSwitchContent = (index, contentIndex, value) => {
-		setSwitchValuesContent(prevState => {
-			const newState = [...prevState]
+		setSwitchValuesContent(prev => {
+			const newState = [...prev]
+			if (!newState[index]) newState[index] = []
 			newState[index][contentIndex] = value
 			return newState
 		})
-		setCommentIndex(contentIndex) // Store the current content index for comments
 	}
 
-	async function checkAndRemoveExcessRecords(
-		spreadsheetId,
-		sheetName,
-		accessToken,
-		rowCountBeforeAdding,
-		templateRowCount
-	) {
-		try {
-			const getSheetDataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:Z`
-
-			// Pobierz wszystkie dane z arkusza
-			const response = await fetch(getSheetDataUrl, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
-
-			const result = await response.json()
-			const sheetData = result.values
-
-			if (!response.ok || !sheetData) {
-				console.error('Błąd podczas pobierania danych z arkusza:', result.error)
-				return
-			}
-
-			const currentRowCount = sheetData.length // Liczba wierszy w arkuszu po dodaniu
-			console.log(`Obecna liczba wierszy: ${currentRowCount}`)
-
-			// Poprawna liczba wierszy: wiersze przed dodaniem + długość szablonu + wiersz "\"
-			const validRowCount = rowCountBeforeAdding + templateRowCount + 1
-			console.log(`Poprawna liczba wierszy: ${validRowCount}`)
-
-			// Sprawdzenie, czy jest więcej wierszy niż poprawna liczba
-			if (currentRowCount > validRowCount) {
-				console.log(`Nadmiarowe rekordy: ${currentRowCount - validRowCount}`)
-				const deleteRequests = {
-					requests: [
-						{
-							deleteDimension: {
-								range: {
-									sheetId: await getSheetId(spreadsheetId, sheetName, accessToken),
-									dimension: 'ROWS',
-									startIndex: validRowCount, // Usuń wiersze zaczynające się od indeksu poprawnej liczby
-									endIndex: currentRowCount, // Usuń aż do końca
-								},
-							},
-						},
-					],
-				}
-
-				const batchUpdateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`
-
-				const deleteResponse = await fetch(batchUpdateUrl, {
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify(deleteRequests),
-				})
-
-				if (!deleteResponse.ok) {
-					console.error('Błąd podczas usuwania nadmiarowych rekordów:', await deleteResponse.text())
-				} else {
-					console.log('Nadmiarowe rekordy zostały usunięte.')
-				}
-			} else {
-				console.log('Liczba rekordów jest zgodna z szablonem.')
-			}
-		} catch (error) {
-			console.error('Błąd podczas sprawdzania nadmiarowych rekordów:', error)
-		}
+	const resetForm = () => {
+		setOpenSections({})
+		setSwitchValuesContent(elements.map(() => Array(10).fill(false)))
+		setComments(elements.map(() => ({})))
+		setUploadStatuses(Array(elements.length).fill(null))
+		setTakenPhotos({})
+		console.log('Formularz wyczyszczony')
 	}
 
-	// Pomocnicza funkcja: Pobierz ID arkusza (sheetId)
-	async function getSheetId(spreadsheetId, sheetName, accessToken) {
-		const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
-
-		try {
-			const response = await fetch(metadataUrl, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
-
-			const metadata = await response.json()
-			if (!response.ok || !metadata.sheets) {
-				throw new Error('Nie udało się pobrać metadanych arkusza.')
-			}
-
-			const sheet = metadata.sheets.find(sheet => sheet.properties.title === sheetName)
-			return sheet.properties.sheetId
-		} catch (error) {
-			console.error('Błąd podczas pobierania ID arkusza:', error)
-			throw error
-		}
-	}
-
-	async function getRowCountBeforeAdding(spreadsheetId, sheetName, accessToken) {
-		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-
-		try {
-			const response = await fetch(url, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
-			const result = await response.json()
-
-			if (response.ok) {
-				return result.values ? result.values.length : 0
-			} else {
-				console.error('Błąd podczas pobierania liczby wierszy:', result.error)
-				return 0
-			}
-		} catch (error) {
-			console.error('Błąd podczas pobierania liczby wierszy:', error)
-			return 0
-		}
-	}
-
-	const getSheetMetadata = async (spreadsheetId, accessToken, title) => {
-		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties)`
-		const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
-		const data = await response.json()
-
-		const targetSheet = data.sheets?.find(sheet => sheet.properties.title === title)
-		if (!targetSheet) throw new Error(`Arkusz ${title} nie został znaleziony.`)
-
-		return {
-			sheetId: targetSheet.properties.sheetId,
-			sheetName: targetSheet.properties.title,
-		}
-	}
-
-	// OPTYMALIZACJA: Szybsze sprawdzanie ostatniego wiersza
-	const getLastRowIndex = async (spreadsheetId, sheetName, accessToken) => {
-		const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A:A?fields=values`
-		const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
-		const result = await response.json()
-		return result.values ? result.values.length : 0
-	}
-
-	// Dodaj tę funkcję pomocniczą wewnątrz komponentu DetailScreen do czyszczenia pól
-	const resetFormFields = () => {
-		setComments(elements.map(() => ({}))) // Czyści wszystkie komentarze
-		setSwitchValuesContent(elements.map(() => Array(3).fill(false))) // Resetuje przyciski
-		setOpenSections({}) // Zamyka wszystkie sekcje
-		setTakenPhotos({}) // Usuwa miniatury zdjęć z widoku
-		setUploadStatuses(Array(elements.length).fill(null)) // Resetuje statusy uploadu
-	}
+	// --- WYSYŁANIE (HANDLESUBMIT) ---
 
 	const handleSubmit = async () => {
 		if (isSubmitting) return
 		setIsSubmitting(true)
 
+		// 1. Definiujemy payload NA SAMYM POCZĄTKU, żeby był dostępny w catch
+		let payload = null
+
 		try {
-			const accessToken = (await GoogleSignin.getTokens()).accessToken
 			const storageData = await retrieveData()
 			const spreadsheetId = storageData.copiedTemplateId
+			const accessToken = (await GoogleSignin.getTokens()).accessToken
 
-			// 1. ODTWORZONA LOGIKA: Mapowanie elementów na format arkusza z uwzględnieniem uwag
-			const valuesForMapping = elements.map((element, index) => {
-				const sectionName = element.name
-				const isOpen = !!openSections[index]
-
-				// Przygotowanie wiersza: Nazwa sekcji, Status otwarcia, a potem odpowiedzi
-				let row = [sectionName, isOpen ? 'Tak' : 'Nie']
-
-				element.content.forEach((_, contentIndex) => {
+			// 2. Budowanie danych (to nie wymaga internetu)
+			const valuesToSheet = elements.map((element, index) => {
+				let row = [element.name, openSections[index] ? 'Tak' : 'Nie']
+				element.content.forEach((content, contentIndex) => {
 					const state = switchValuesContent[index]?.[contentIndex] || 'Nie dotyczy'
-					const commentText = comments[index]?.[contentIndex] || ''
-
-					// Łączenie statusu z komentarzem (np. "Nie, brakuje poręczy")
-					const finalCellValue = commentText ? `${state}, ${commentText}` : state
-					row.push(finalCellValue)
+					const comment = comments[index]?.[contentIndex] || ''
+					row.push(comment.trim() !== '' ? `${state}, ${comment}` : state)
 				})
-
 				return row
 			})
 
-			// 2. PRZYGOTOWANIE FINALNYCH DANYCH (zgodnie z Twoim szablonem)
-			// mergeTemplateWithData oczekuje danych w formacie [ [Sekcja, Odp1, Odp2...], [...] ]
-			const updatedTemplate = mergeTemplateWithData(templateValuesState, valuesForMapping)
+			const finalData = mergeTemplateWithData(templateValuesState, valuesToSheet)
+			finalData.unshift(['/'])
 
-			// Dodajemy separator '/' na początku nowych danych
-			const finalDataWithSeparator = [['/'], ...updatedTemplate]
-
-			// 3. POBIERANIE METADANYCH (Potrzebne do sheetId i lokalizacji wklejania)
-			const [meta, lastRow] = await Promise.all([
-				getSheetMetadata(spreadsheetId, accessToken, title),
-				getLastRowIndex(spreadsheetId, title, accessToken),
-			])
-
-			const payload = {
+			// 3. Tworzymy payload BEZ sheetId (na razie)
+			payload = {
 				spreadsheetId,
 				sheetName: title,
-				sheetId: meta.sheetId,
-				finalData: finalDataWithSeparator,
-				templateCount: updatedTemplate.length,
+				finalData,
+				templateCount: templateValuesState.length,
+				sheetId: null, // <--- Ważne: domyślnie null
 			}
 
-			// 4. WYBÓR ŚCIEŻKI: ONLINE / OFFLINE
+			// 4. Sprawdzamy tryb samolotowy (NetInfo)
 			if (!isOnline) {
-				await addToOfflineQueue(payload)
-				resetFormFields() // Czyścimy pola po dodaniu do kolejki
-			} else {
-				const accessToken = (await GoogleSignin.getTokens()).accessToken
-				await executeUpload(payload, accessToken) // <--- TUTAJ
-				Alert.alert('Sukces', 'Dane wysłane pomyślnie.')
-				resetFormFields()
+				throw new Error('OfflineMode') // Wyrzucamy błąd, żeby wpaść do catch
 			}
+
+			// 5. Jeśli jesteśmy online, próbujemy pobrać ID i wysłać
+			// Jeśli to zawiedzie (np. "Network request failed"), payload już istnieje!
+			const meta = await getSheetMetadata(spreadsheetId, accessToken, title)
+			payload.sheetId = meta.sheetId // Uzupełniamy ID jeśli się udało
+
+			console.log('Wysyłanie online...')
+			await executeUpload(payload, accessToken)
+
+			// Sukces Online
+			const storageKey = await getCountStorageKey()
+			const storedData = await AsyncStorage.getItem(storageKey)
+			let counts = storedData ? JSON.parse(storedData) : {}
+			counts[title] = (counts[title] || 0) + 1
+			await AsyncStorage.setItem(storageKey, JSON.stringify(counts))
+			setSendCount(counts[title])
+
+			Alert.alert('Sukces', 'Dane zostały wysłane pomyślnie!')
+			resetForm()
 		} catch (error) {
-			console.error('Błąd podczas procesowania formularza:', error)
-			// Jeśli błąd wystąpił podczas wysyłki online, awaryjnie dodaj do kolejki
-			Alert.alert('Błąd połączenia', 'Wystąpił problem z wysyłką. Dane zostały zapisane w kolejce do ponownej próby.')
+			console.log('Obsługa błędu wysyłki:', error.message)
+
+			// 6. Logika ratunkowa
+			// Teraz payload na pewno istnieje (chyba że błąd był w retrieveData, ale to rzadkość)
+			const isNetworkError =
+				error.message.includes('Network request failed') ||
+				error.message === 'OfflineMode' ||
+				error.message.includes('Internet')
+
+			if (payload && isNetworkError) {
+				console.log('Dodawanie do kolejki offline...')
+				await addToQueue(payload)
+				Alert.alert('Tryb Offline', 'Brak połączenia z serwerem. Audyt zapisano w kolejce do wysłania później.')
+				resetForm()
+			} else {
+				// Inne błędy (np. błąd kodu, brak uprawnień)
+				Alert.alert('Błąd', 'Wystąpił problem: ' + error.message)
+			}
 		} finally {
 			setIsSubmitting(false)
 		}
 	}
 
-	async function fastCopyStyles(spreadsheetId, sheetId, templateRowCount, startRowIndex, accessToken) {
-		const requests = [
-			// Kopiowanie Nagłówka (Wiersz 1 z obrazkiem/logo)
-			{
-				copyPaste: {
-					source: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 20 },
-					destination: { sheetId, startRowIndex: startRowIndex, endRowIndex: startRowIndex + 1 },
-					pasteType: 'PASTE_NORMAL',
-				},
-			},
-			// Kopiowanie Formatowania dla całej reszty wierszy
-			{
-				copyPaste: {
-					source: {
-						sheetId,
-						startRowIndex: 1,
-						endRowIndex: templateRowCount + 1,
-						startColumnIndex: 0,
-						endColumnIndex: 20,
-					},
-					destination: {
-						sheetId,
-						startRowIndex: startRowIndex + 1,
-						endRowIndex: startRowIndex + 1 + templateRowCount,
-					},
-					pasteType: 'PASTE_FORMAT', // Kopiuje tylko kolory, obramowania, walidację danych
-				},
-			},
-		]
-
-		await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-			method: 'POST',
-			headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-			body: JSON.stringify({ requests }),
-		})
-	}
-
-	async function appendData(spreadsheetId, sheetName, values, accessToken) {
-		const getRowCountUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-		try {
-			// Pobierz wszystkie dane z kolumny A, aby ustalić liczbę wierszy z danymi
-			const rowCountResponse = await fetch(getRowCountUrl, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			})
-			const rowCountResult = await rowCountResponse.json()
-			let lastRowWithData = 0 // Indeks ostatniego wiersza z danymi
-
-			if (rowCountResponse.ok) {
-				if (rowCountResult.values) {
-					// Znajdź indeks ostatniego niepustego wiersza
-					for (let i = rowCountResult.values.length - 1; i >= 0; i--) {
-						if (rowCountResult.values[i][0] !== '' && rowCountResult.values[i][0] != null) {
-							lastRowWithData = i + 1 // Tablice są indeksowane od 0, ale wiersze w Sheets od 1
-							break
-						}
-					}
-				}
-			} else {
-				console.error('Nie można pobrać liczby wierszy:', rowCountResult.error)
-				Alert.alert('Błąd', 'Problem z pobraniem liczby wierszy.')
-				return
-			}
-
-			// Start appending data two rows after the last row with data
-			const startRow = lastRowWithData + 1 // Wstawiamy bez pustych wierszy
-			if (values.length > 0 && values[0].length > 2) {
-				values[0].splice(2, 1) // usuwa trzeci element (czyli drugą odpowiedź)
-			}
-			// Przygotowujemy dane do wstawienia znaku '/'
-			values.unshift(['/']) // Dodajemy wiersz ze znakiem '/' przed nowymi danymi
-			const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A${startRow}:A:append?valueInputOption=USER_ENTERED`
-			const appendResponse = await fetch(appendUrl, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ values: values }),
-			})
-
-			if (!appendResponse.ok) {
-				const errorDetails = await appendResponse.text()
-				throw new Error(
-					`Błąd podczas wysyłania danych: ${appendResponse.status} ${appendResponse.statusText} - ${errorDetails}`
-				)
-			}
-		} catch (error) {
-			console.error('Błąd:', error)
-			Alert.alert('Błąd', `Wystąpił problem podczas wysyłania danych: ${error.message}`)
-		}
-	}
-
-	// Adjust copyStylesAndData to match new data insertion points
-	async function copyFirstRow(spreadsheetId, sheetId, sourceRange, destinationRange, accessToken) {
-		const requests = [
-			{
-				copyPaste: {
-					source: sourceRange,
-					destination: destinationRange,
-					pasteType: 'PASTE_NORMAL',
-					pasteOrientation: 'NORMAL',
-				},
-			},
-		]
-
-		const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`
-		const updateResponse = await fetch(updateUrl, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ requests: requests }),
-		})
-
-		if (!updateResponse.ok) {
-			const errorDetails = await updateResponse.text()
-			throw new Error(
-				`Błąd podczas kopiowania pierwszego wiersza: ${updateResponse.status} ${updateResponse.statusText} - ${errorDetails}`
-			)
-		}
-
-		console.log('Pierwszy wiersz został pomyślnie skopiowany.')
-	}
-
-	async function copyStylesAndData(spreadsheetId, sourceSheetId, rowCount, accessToken, sheetName) {
-		// Obliczenie ostatniego wiersza z danymi
-		const getLastRowUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:A`
-		let lastRowWithData = 0
-
-		// Znajdź ostatni wiersz z danymi
-		const lastRowResponse = await fetch(getLastRowUrl, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
-		})
-		const lastRowResult = await lastRowResponse.json()
-		if (lastRowResponse.ok && lastRowResult.values) {
-			lastRowWithData = lastRowResult.values.length
-		} else {
-			console.error('Problem with getting last data row:', lastRowResult.error)
-			return
-		}
-
-		// Korekta: Przesunięcie startPasteRow o 2 wiersze wyżej
-		const startPasteRow = lastRowWithData - rowCount + 1 // +1 zamiast +3
-		const endPasteRow = lastRowWithData + 1 // +1 zamiast +3
-
-		// Przygotowanie żądań
-		const requests = [
-			// Kopiowanie komórek z obrazami osadzonymi w nagłówkach (pierwszy wiersz)
-			{
-				copyPaste: {
-					source: {
-						sheetId: sourceSheetId,
-						startRowIndex: 0,
-						endRowIndex: 1,
-						startColumnIndex: 0,
-						endColumnIndex: 26, // Zakres kolumn, dostosuj w razie potrzeby
-					},
-					destination: {
-						sheetId: sourceSheetId,
-						startRowIndex: startPasteRow - 1,
-						endRowIndex: startPasteRow,
-						startColumnIndex: 0,
-						endColumnIndex: 26,
-					},
-					pasteType: 'PASTE_NORMAL',
-					pasteOrientation: 'NORMAL',
-				},
-			},
-		]
-
-		// Pobierz pełne dane arkusza, w tym stylowanie
-		const getSheetDataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${sheetName}!A2:Z${
-			rowCount + 1
-		}&includeGridData=true`
-		const sheetDataResponse = await fetch(getSheetDataUrl, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
-		})
-		const sheetDataResult = await sheetDataResponse.json()
-		if (!sheetDataResponse.ok) {
-			console.error('Problem with getting sheet data:', sheetDataResult.error)
-			return
-		}
-
-		// Dodaj żądania kopiowania stylów i walidacji danych
-		sheetDataResult.sheets[0].data[0].rowData.forEach((row, rowIndex) => {
-			row.values.forEach((cell, columnIndex) => {
-				if (cell.userEnteredFormat || cell.dataValidation) {
-					requests.push({
-						repeatCell: {
-							range: {
-								sheetId: sourceSheetId,
-								startRowIndex: startPasteRow + rowIndex,
-								endRowIndex: startPasteRow + rowIndex + 1,
-								startColumnIndex: columnIndex,
-								endColumnIndex: columnIndex + 1,
-							},
-							cell: {
-								userEnteredFormat: cell.userEnteredFormat || {},
-								dataValidation: cell.dataValidation || null,
-							},
-							fields:
-								'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,numberFormat,borders),dataValidation',
-						},
-					})
-				}
-			})
-		})
-
-		// Wyślij żądanie aktualizacji
-		const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ requests: requests }),
-		})
-
-		if (!response.ok) {
-			const responseBody = await response.text()
-			throw new Error(`HTTP error ${response.status}: ${responseBody}`)
-		}
-
-		console.log('Cells, styles, and data validations copied successfully')
-	}
-
-	//aparat
-	const { hasPermission, requestPermission } = useCameraPermission()
-	const [isActive, setIsActive] = useState(false)
-	const [isCameraReady, setIsCameraReady] = useState(false)
-	const [isFullScreenCameraVisible, setIsFullScreenCameraVisible] = useState(false)
-	const [selectedElementName, setSelectedElementName] = useState('')
-	const [selectedElementIndex, setSelectedElementIndex] = useState(null)
-	const [SelectedLocalization, setSelectedLocalization] = useState('')
-
-	const device = useCameraDevice('back')
-	const cameraRef = useRef(null)
+	// --- APARAT I ZDJĘCIA (BEZ ZMIAN W LOGICE, TYLKO UPORZĄDKOWANIE) ---
 
 	useEffect(() => {
 		requestPermission()
 	}, [hasPermission])
+
 	const onTakePicturePressed = async () => {
 		if (cameraRef.current && !isCapturing) {
-			setIsCapturing(true) // Włącz spinner na migawce
+			setIsCapturing(true)
 			try {
 				const photo = await cameraRef.current.takePhoto()
 				setCapturedPhoto(photo)
 			} catch (error) {
-				console.error('Błąd podczas robienia zdjęcia:', error)
-				Alert.alert('Błąd aparatu', 'Nie udało się zrobić zdjęcia.')
+				Alert.alert('Błąd', 'Nie udało się zrobić zdjęcia.')
 			} finally {
-				setIsCapturing(false) // Zawsze wyłączaj spinner na migawce po zakończeniu
+				setIsCapturing(false)
 			}
+		}
+	}
+
+	const compressImage = async uri => {
+		try {
+			const manipResult = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1600 } }], {
+				compress: 0.7,
+				format: ImageManipulator.SaveFormat.JPEG,
+			})
+			return manipResult.uri
+		} catch (error) {
+			return uri
 		}
 	}
 
 	const handleUsePhoto = async () => {
 		if (!capturedPhoto) return
+		setIsUploading(true)
+		setTakenPhotos(prev => ({ ...prev, [selectedElementIndex]: capturedPhoto }))
 
-		setIsUploading(true) // Włączamy spinner (teraz na ekranie podglądu)
-
-		setTakenPhotos(prevPhotos => ({
-			...prevPhotos,
-			[selectedElementIndex]: capturedPhoto,
-		}))
-
-		await uploadPhoto(capturedPhoto, selectedElementName, selectedElementIndex)
-		setIsUploading(false)
-		// Resetujemy stany po zakończeniu wysyłania/zapisu
-		setCapturedPhoto(null)
-	}
-
-	// NOWA FUNKCJA: Uruchamiana, gdy użytkownik chce powtórzyć zdjęcie
-	const handleRetakePhoto = () => {
-		setCapturedPhoto(null) // Czyścimy stan, co spowoduje powrót do widoku kamery
-	}
-
-	const compressImage = async uri => {
-		try {
-			const manipResult = await ImageManipulator.manipulateAsync(
-				uri,
-				[{ resize: { width: 1600 } }], // Zmniejszamy szerokość do 1600px (proporcje zachowane)
-				{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Jakość 70%, format JPEG
-			)
-			console.log('Zdjęcie skompresowane. Nowy URI:', manipResult.uri)
-			return manipResult.uri
-		} catch (error) {
-			console.error('Błąd kompresji zdjęcia:', error)
-			return uri // W razie błędu zwróć oryginał
-		}
-	}
-
-	const uploadPhoto = async (photo, name, index) => {
 		try {
 			const token = (await GoogleSignin.getTokens()).accessToken
 			GDrive.setAccessToken(token)
 			GDrive.init()
 
-			const photoUri = `file://${photo.path}`
+			const photoUri = `file://${capturedPhoto.path}`
 			const compressedUri = await compressImage(photoUri)
 			const cleanPath = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`
-
 			const base64 = await RNFetchBlob.fs.readFile(cleanPath, 'base64')
+
 			const result = await GDrive.files.createFileMultipart(
 				base64,
 				'image/jpeg',
-				{
-					parents: [await AsyncStorage.getItem('@PhotosFolderId')],
-					name: name,
-				},
+				{ parents: [await AsyncStorage.getItem('@PhotosFolderId')], name: selectedElementName },
 				true
 			)
-			if (result.ok) {
-				updateUploadStatus(index, 'success')
 
+			if (result.ok) {
+				setUploadStatuses(prev => {
+					const n = [...prev]
+					n[selectedElementIndex] = 'success'
+					return n
+				})
 				setIsActive(false)
 			} else {
-				throw new Error('Failed to upload photo')
+				throw new Error('Upload failed')
 			}
 		} catch (error) {
-			console.error('Error uploading image to Google Drive: ', error)
-			updateUploadStatus(index, 'error')
-
+			console.error('Upload error:', error)
+			setUploadStatuses(prev => {
+				const n = [...prev]
+				n[selectedElementIndex] = 'error'
+				return n
+			})
 			setIsActive(false)
+		} finally {
+			setIsUploading(false)
+			setCapturedPhoto(null)
 		}
 	}
 
-	const updateUploadStatus = (index, status) => {
-		setUploadStatuses(prev => {
-			const updated = [...prev]
-			updated[index] = status
-			return updated
-		})
-	}
+	// --- RENDER ---
 
 	const renderItem = useCallback(
 		({ item: element, index }) => {
 			return (
 				<View className='bg-white my-2 rounded-xl shadow-sm overflow-hidden mx-2'>
-					{/* Nagłówek sekcji */}
 					<View className='p-4 flex-row justify-between items-center'>
 						<Text className='text-lg font-bold text-gray-800 flex-1 pr-4'>{element.name}</Text>
 						<Switch
 							trackColor={{ false: '#E5E7EB', true: '#81b0ff' }}
 							thumbColor={openSections[index] ? '#3B82F6' : '#f4f3f4'}
-							ios_backgroundColor='#3e3e3e'
 							onValueChange={() => handleToggle(index)}
 							value={!!openSections[index]}
 						/>
 					</View>
-
-					{/* Rozwijana zawartość */}
 					{openSections[index] && (
 						<View>
 							{element.content.map((content, contentIndex) => (
 								<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
 									<Text className='text-base text-gray-700 mb-4'>{content}</Text>
-
-									{/* Przyciski */}
 									<View className='flex-row flex-wrap gap-2 mb-4'>
 										{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
 											<TouchableOpacity
@@ -1131,19 +482,15 @@ const DetailScreen = () => {
 											</TouchableOpacity>
 										))}
 									</View>
-
-									{/* Komentarz */}
 									<CommentInput
-										placeholder='Dodaj uwagi lub użyj mikrofonu...'
+										placeholder='Dodaj uwagi...'
 										value={comments[index]?.[contentIndex] || ''}
 										onChangeText={text => handleCommentChange(index, contentIndex, text)}
-										aiContext={`- Kategoria główna: ${title}\n- Podkategoria: ${element.name}\n- Sprawdzane kryterium: ${content}`}
+										aiContext={`- Kat: ${title}\n- Podkat: ${element.name}\n- Kryt: ${content}`}
 										photo={takenPhotos[index]}
 									/>
 								</View>
 							))}
-
-							{/* Aparat */}
 							<View className='p-4 border-t border-gray-200'>
 								<TouchableOpacity
 									onPress={() => {
@@ -1156,41 +503,16 @@ const DetailScreen = () => {
 									<Feather name='camera' size={20} color='#4B5563' />
 									<Text className='text-gray-700 font-semibold ml-3'>Zrób zdjęcie</Text>
 								</TouchableOpacity>
-
-								{/* Status wysyłania */}
 								{uploadStatuses[index] && (
 									<View
-										className={`mt-2 p-2 rounded-md flex-row items-center ${
-											uploadStatuses[index] === 'success'
-												? 'bg-green-100'
-												: uploadStatuses[index] === 'error'
-													? 'bg-red-100'
-													: 'bg-yellow-100'
-										}`}>
+										className={`mt-2 p-2 rounded-md flex-row items-center ${uploadStatuses[index] === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
 										<Feather
-											name={
-												uploadStatuses[index] === 'success'
-													? 'check-circle'
-													: uploadStatuses[index] === 'error'
-														? 'x-circle'
-														: 'clock'
-											}
+											name={uploadStatuses[index] === 'success' ? 'check-circle' : 'x-circle'}
 											size={16}
-											color={
-												uploadStatuses[index] === 'success'
-													? '#16A34A'
-													: uploadStatuses[index] === 'error'
-														? '#DC2626'
-														: '#D97706'
-											}
+											color={uploadStatuses[index] === 'success' ? '#16A34A' : '#DC2626'}
 										/>
-										<Text
-											className={`ml-2 font-medium ${uploadStatuses[index] === 'success' ? 'text-green-800' : uploadStatuses[index] === 'error' ? 'text-red-800' : 'text-yellow-800'}`}>
-											{uploadStatuses[index] === 'success'
-												? 'Zdjęcie wysłane'
-												: uploadStatuses[index] === 'error'
-													? 'Błąd wysyłania'
-													: 'Zapisano w kolejce'}
+										<Text className='ml-2 font-medium text-gray-800'>
+											{uploadStatuses[index] === 'success' ? 'Zdjęcie wysłane' : 'Błąd wysyłania'}
 										</Text>
 									</View>
 								)}
@@ -1215,7 +537,6 @@ const DetailScreen = () => {
 	return (
 		<SafeAreaView className='flex-1 bg-gray-100'>
 			<Stack.Screen options={{ headerTitle: title, headerTitleAlign: 'center' }} />
-
 			<FlatList
 				data={elements}
 				keyExtractor={(item, index) => index.toString()}
@@ -1224,7 +545,7 @@ const DetailScreen = () => {
 				ListFooterComponent={
 					<View className='p-5 pb-20'>
 						<TouchableOpacity
-							onPress={handleSubmit} // Tutaj musisz mieć zdefiniowaną funkcję handleSubmit w scope (skopiuj ją z oryginału)
+							onPress={handleSubmit}
 							disabled={isSubmitting}
 							className={`h-14 rounded-full flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600'}`}>
 							{isSubmitting ? (
@@ -1236,25 +557,20 @@ const DetailScreen = () => {
 								</>
 							)}
 						</TouchableOpacity>
-
 						<View className='items-center mt-10 mb-20'>
-							{sendCount > 0 ? (
-								<Text className='text-gray-700 font-semibold'>
-									Wysłano danych dla tej kategorii: {sendCount} {sendCount === 1 ? 'raz' : 'razy'}
-								</Text>
-							) : (
-								<Text className='text-gray-700 font-semibold'>Nie wysłano jeszcze danych dla tej kategorii</Text>
-							)}
+							<Text className='text-gray-700 font-semibold'>
+								{sendCount > 0 ? `Wysłano danych: ${sendCount}` : 'Nie wysłano jeszcze danych'}
+							</Text>
 						</View>
 					</View>
 				}
 			/>
 
-			{/* Modal z aparatem - UI jak wcześniej, logika podpięta pod oryginał */}
+			{/* MODAL APARATU */}
 			<Modal visible={isActive} onRequestClose={() => setIsActive(false)} animationType='slide'>
 				{device == null ? (
 					<View className='flex-1 justify-center items-center bg-black'>
-						<Text className='text-white text-xl'>Brak aparatu</Text>
+						<Text className='text-white'>Brak aparatu</Text>
 					</View>
 				) : (
 					<View className='flex-1 bg-black'>
@@ -1275,11 +591,11 @@ const DetailScreen = () => {
 								</TouchableOpacity>
 								<View className='absolute bottom-10 w-full items-center'>
 									<TouchableOpacity
-										disabled={isCapturing}
 										onPress={onTakePicturePressed}
+										disabled={isCapturing}
 										className='w-20 h-20 bg-white/80 rounded-full border-4 border-white justify-center items-center'>
 										{isCapturing ? (
-											<ActivityIndicator size='large' color='#000' />
+											<ActivityIndicator color='#000' />
 										) : (
 											<Feather name='camera' size={40} color='#333' />
 										)}
@@ -1290,25 +606,22 @@ const DetailScreen = () => {
 							<View className='flex-1'>
 								<Image source={{ uri: `file://${capturedPhoto.path}` }} style={StyleSheet.absoluteFill} />
 								<View className='absolute bottom-10 w-full flex-row justify-around items-center'>
-									{/* --- POCZĄTEK ZMIANY --- */}
-									<TouchableOpacity onPress={handleRetakePhoto} disabled={isUploading} className='items-center'>
-										{/* Dodajemy tło dla ikony */}
+									<TouchableOpacity
+										onPress={() => setCapturedPhoto(null)}
+										disabled={isUploading}
+										className='items-center'>
 										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
 											<Feather name='x' size={32} color='white' />
 										</View>
-										<Text className='text-white font-bold mt-2'>Zrób ponownie</Text>
+										<Text className='text-white font-bold mt-2'>Powtórz</Text>
 									</TouchableOpacity>
-
 									<TouchableOpacity onPress={handleUsePhoto} disabled={isUploading} className='items-center'>
-										{/* Dodajemy tło dla ikony */}
 										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
 											<Feather name='check' size={32} color='white' />
 										</View>
-										<Text className='text-white font-bold mt-2'>Użyj tego zdjęcia</Text>
+										<Text className='text-white font-bold mt-2'>Użyj</Text>
 									</TouchableOpacity>
-									{/* --- KONIEC ZMIANY --- */}
 								</View>
-
 								{isUploading && (
 									<View
 										style={[

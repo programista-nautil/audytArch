@@ -1,25 +1,37 @@
-import React, { useEffect, useState } from 'react'
-import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image } from 'react-native'
+import React, { useEffect, useState, useCallback } from 'react'
+import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, Alert } from 'react-native'
 import { Feather } from '@expo/vector-icons'
-import { Stack } from 'expo-router'
+import { Stack, useRouter, useFocusEffect } from 'expo-router'
 import Welcome from '../components/home/welcome/Welcome'
 import Popularjobs from '../components/home/popular/Popularjobs'
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
-import { useRouter } from 'expo-router'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
 
 const HomeScreen = () => {
 	const router = useRouter()
-	const { count } = useOfflineQueue()
+	// 1. Dodano 'count' do destrukturyzacji
+	const { queue, isOnline, loadQueue, count } = useOfflineQueue()
 	const [error, setError] = useState()
 	const [userInfo, setUserInfo] = useState()
 
+	// 2. Odświeżanie kolejki przy każdym powrocie na ekran (Focus)
+	useFocusEffect(
+		useCallback(() => {
+			loadQueue()
+		}, [])
+	)
+
+	useEffect(() => {
+		if (isOnline && count > 0) {
+			console.log('Wykryto powrót sieci! Masz zadania w kolejce:', count)
+			// Możesz tutaj odkomentować, jeśli chcesz automatyczny Alert
+			Alert.alert('Sieć dostępna', `Masz ${count} oczekujących zadań do wysłania.`)
+		}
+	}, [isOnline, count])
+
 	useEffect(() => {
 		GoogleSignin.configure({
-			scopes: [
-				'https://www.googleapis.com/auth/spreadsheets', // Do pracy z arkuszami
-				'https://www.googleapis.com/auth/drive', // Pełny dostęp do Drive, jeśli potrzebny
-			],
+			scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
 		})
 	}, [])
 
@@ -53,16 +65,6 @@ const HomeScreen = () => {
 					headerShadowVisible: false,
 					headerTitle: 'Audyt Architektoniczny',
 					headerTitleAlign: 'center',
-					headerRight: () => (
-						<TouchableOpacity onPress={() => router.push('/sync')} className='mr-4 p-2 relative'>
-							<Feather name='refresh-cw' size={24} color={count > 0 ? '#3B82F6' : '#9CA3AF'} />
-							{count > 0 && (
-								<View className='absolute top-0 right-0 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center border-2 border-white'>
-									<Text className='text-white text-[10px] font-bold'>{count}</Text>
-								</View>
-							)}
-						</TouchableOpacity>
-					),
 				}}
 			/>
 
@@ -74,7 +76,6 @@ const HomeScreen = () => {
 				ListHeaderComponent={() => (
 					<View className='flex-1 p-4'>
 						{userInfo ? (
-							// --- PANEL ZALOGOWANEGO UŻYTKOWNIKA ---
 							<View className='bg-white p-4 rounded-xl shadow-md mb-6 border border-gray-200'>
 								<View className='flex-row items-center'>
 									{userInfo.user.photo && (
@@ -97,7 +98,6 @@ const HomeScreen = () => {
 								</TouchableOpacity>
 							</View>
 						) : (
-							// --- PANEL LOGOWANIA ---
 							<View className='bg-white p-6 rounded-xl shadow-md mb-6 items-center border border-gray-200'>
 								<GoogleSigninButton
 									size={GoogleSigninButton.Size.Wide}
@@ -107,7 +107,25 @@ const HomeScreen = () => {
 							</View>
 						)}
 
-						{/* Komunikat o błędzie */}
+						{/* --- NOWY ELEMENT: POWIADOMIENIE O SYNCHRONIZACJI --- */}
+						{count > 0 && (
+							<TouchableOpacity
+								onPress={() => router.push('/sync')}
+								className={`mb-6 p-4 rounded-xl flex-row items-center justify-between ${isOnline ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
+								<View className='flex-row items-center flex-1'>
+									<Feather
+										name={isOnline ? 'cloud-off' : 'wifi-off'}
+										size={20}
+										color={isOnline ? '#3B82F6' : '#F59E0B'}
+									/>
+									<Text className={`ml-3 font-semibold ${isOnline ? 'text-blue-800' : 'text-orange-800'}`}>
+										{isOnline ? `Masz ${count} zadania do synchronizacji` : `Oczekiwanie na sieć (${count} w kolejce)`}
+									</Text>
+								</View>
+								<Feather name='chevron-right' size={20} color={isOnline ? '#3B82F6' : '#F59E0B'} />
+							</TouchableOpacity>
+						)}
+
 						{error && (
 							<View className='bg-red-100 border border-red-300 p-4 rounded-lg flex-row items-center mb-6'>
 								<Feather name='alert-triangle' size={24} color='#DC2626' />
@@ -115,7 +133,6 @@ const HomeScreen = () => {
 							</View>
 						)}
 
-						{/* Reszta komponentów */}
 						<Welcome />
 						<Popularjobs />
 					</View>

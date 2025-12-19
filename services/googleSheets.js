@@ -57,7 +57,14 @@ export const fastCopyStyles = async (spreadsheetId, sheetId, templateRowCount, s
 }
 
 export const executeUpload = async (payload, accessToken) => {
-	const { spreadsheetId, sheetName, finalData, templateCount, sheetId } = payload
+	let { spreadsheetId, sheetName, finalData, templateCount, sheetId } = payload // Używamy let dla sheetId
+
+	// POPRAWKA: Jeśli brakuje sheetId (bo byliśmy offline), pobieramy je teraz
+	if (!sheetId) {
+		console.log('Brak sheetId w payloadzie, pobieram metadane teraz...')
+		const meta = await getSheetMetadata(spreadsheetId, accessToken, sheetName)
+		sheetId = meta.sheetId
+	}
 
 	// 1. Znajdź miejsce docelowe
 	const lastRow = await getLastRowIndex(spreadsheetId, sheetName, accessToken)
