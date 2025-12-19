@@ -644,6 +644,7 @@ const DetailScreen = () => {
 									photo={true}
 									isActive={isFocused && isActive}
 									onInitialized={() => setIsCameraReady(true)}
+									resizeMode='contain'
 								/>
 								<TouchableOpacity
 									onPress={() => setIsActive(false)}
@@ -665,7 +666,11 @@ const DetailScreen = () => {
 							</>
 						) : (
 							<View className='flex-1'>
-								<Image source={{ uri: `file://${capturedPhoto.path}` }} style={StyleSheet.absoluteFill} />
+								<Image
+									source={{ uri: `file://${capturedPhoto.path}` }}
+									style={StyleSheet.absoluteFill}
+									resizeMode='contain'
+								/>
 								<View className='absolute bottom-10 w-full flex-row justify-around items-center'>
 									<TouchableOpacity
 										onPress={() => setCapturedPhoto(null)}
