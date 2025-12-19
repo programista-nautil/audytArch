@@ -1,15 +1,16 @@
-import React, { useState, useCallback } from 'react' // <--- USUNIĘTO useFocusEffect stąd
+import React, { useState, useCallback } from 'react'
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView } from 'react-native'
-import { Stack, useRouter, useFocusEffect } from 'expo-router' // <--- DODANO useFocusEffect tutaj
+import { Stack, useFocusEffect } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import { executeUpload } from '../services/googleSheets'
+import { uploadPhotoService } from '../services/googleDrive'
 
 const SyncScreen = () => {
 	const { queue, isOnline, removeItem, loadQueue } = useOfflineQueue()
 	const [isSyncing, setIsSyncing] = useState(false)
-	const router = useRouter()
+	const [currentSyncItem, setCurrentSyncItem] = useState(null)
 
 	// Teraz useFocusEffect zadziała poprawnie, bo jest pobrany z expo-router
 	useFocusEffect(
@@ -26,31 +27,73 @@ const SyncScreen = () => {
 		}
 
 		setIsSyncing(true)
-		try {
-			const tokens = await GoogleSignin.getTokens()
+		const tokens = await GoogleSignin.getTokens()
+		const queueToProcess = [...queue]
 
-			// Przetwarzamy kolejkę po kolei
-			const queueToProcess = [...queue]
-
-			for (const item of queueToProcess) {
-				try {
-					console.log(`Wysyłanie elementu: ${item.data.sheetName}...`)
-					// Wywołujemy serwis dla każdego elementu z kolejki
+		let successCount = 0
+		let failCount = 0
+		for (const item of queueToProcess) {
+			setCurrentSyncItem(item.id) // Podświetlamy aktualny element (opcjonalnie)
+			try {
+				// --- LOGIKA ROZRÓŻNIANIA ---
+				if (item.data.type === 'photo') {
+					// To jest zdjęcie
+					await uploadPhotoService(tokens.accessToken, item.data.uri, item.data.folderId, item.data.name)
+				} else {
+					// To jest arkusz (zakładamy domyślnie, lub sprawdzamy type === 'sheet')
 					await executeUpload(item.data, tokens.accessToken)
-					// Jeśli się udało - usuwamy z AsyncStorage
-					await removeItem(item.id)
-				} catch (e) {
-					console.error(`Błąd synchronizacji elementu ${item.id}:`, e)
 				}
-			}
 
-			Alert.alert('Synchronizacja', 'Zakończono przetwarzanie kolejki.')
-		} catch (error) {
-			Alert.alert('Błąd', 'Wystąpił nieoczekiwany błąd podczas synchronizacji.')
-		} finally {
-			setIsSyncing(false)
-			loadQueue() // Odśwież widok listy
+				await removeItem(item.id)
+				successCount++
+			} catch (e) {
+				console.error(`Błąd synchronizacji elementu ${item.id}:`, e)
+				failCount++
+			}
 		}
+
+		setIsSyncing(false)
+		setCurrentSyncItem(null)
+		loadQueue()
+
+		Alert.alert('Raport synchronizacji', `Sukces: ${successCount}\nBłędy: ${failCount}`)
+	}
+
+	const renderItem = ({ item }) => {
+		const isPhoto = item.data.type === 'photo'
+
+		return (
+			<View className='bg-white p-4 rounded-lg mb-2 shadow-sm flex-row justify-between items-center border border-gray-200'>
+				{/* Ikona typu */}
+				<View className={`p-3 rounded-full mr-3 ${isPhoto ? 'bg-purple-100' : 'bg-blue-100'}`}>
+					<Feather name={isPhoto ? 'image' : 'file-text'} size={24} color={isPhoto ? '#9333EA' : '#2563EB'} />
+				</View>
+
+				<View className='flex-1'>
+					<Text className='font-bold text-gray-800' numberOfLines={1}>
+						{isPhoto ? `Zdjęcie: ${item.data.name}` : `Audyt: ${item.data.sheetName}`}
+					</Text>
+
+					<Text className='text-xs text-gray-500 mt-1'>{new Date(item.timestamp).toLocaleString()}</Text>
+
+					{/* Jeśli to zdjęcie, możemy pokazać podgląd ścieżki lub miniaturkę jeśli chcesz */}
+					{isPhoto && (
+						<Text className='text-[10px] text-gray-400' numberOfLines={1}>
+							{item.data.uri.split('/').pop()}
+						</Text>
+					)}
+				</View>
+
+				{/* Status lub Kosz */}
+				{isSyncing && currentSyncItem === item.id ? (
+					<ActivityIndicator size='small' color='#3B82F6' />
+				) : (
+					<TouchableOpacity onPress={() => removeItem(item.id)} className='p-2'>
+						<Feather name='trash-2' size={20} color='#EF4444' />
+					</TouchableOpacity>
+				)}
+			</View>
+		)
 	}
 
 	return (
@@ -74,17 +117,7 @@ const SyncScreen = () => {
 							<Text className='text-gray-500 mt-4'>Wszystkie dane są zsynchronizowane!</Text>
 						</View>
 					}
-					renderItem={({ item }) => (
-						<View className='bg-white p-4 rounded-lg mb-2 shadow-sm flex-row justify-between items-center border border-gray-200'>
-							<View className='flex-1'>
-								<Text className='font-bold text-gray-800'>{item.data.sheetName}</Text>
-								<Text className='text-xs text-gray-500'>Dodano: {new Date(item.timestamp).toLocaleString()}</Text>
-							</View>
-							<TouchableOpacity onPress={() => removeItem(item.id)}>
-								<Feather name='trash-2' size={20} color='#EF4444' />
-							</TouchableOpacity>
-						</View>
-					)}
+					renderItem={renderItem}
 				/>
 
 				{queue.length > 0 && (

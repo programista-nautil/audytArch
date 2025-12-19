@@ -25,6 +25,7 @@ import CommentInput from '../../components/home/common/CommentInput'
 import * as ImageManipulator from 'expo-image-manipulator'
 import { useOfflineQueue } from '../../hooks/useOfflineQueue' // <--- 1. IMPORT HOOKA
 import { executeUpload, getSheetMetadata } from '../../services/googleSheets' // <--- 2. IMPORT SERWISU
+import { uploadPhotoService } from '../../services/googleDrive'
 
 const SAFE_MAX_ROW_LIMIT = 100
 
@@ -405,44 +406,75 @@ const DetailScreen = () => {
 
 	const handleUsePhoto = async () => {
 		if (!capturedPhoto) return
+
+		// Ustawiamy status na "w trakcie" (spinner)
 		setIsUploading(true)
 		setTakenPhotos(prev => ({ ...prev, [selectedElementIndex]: capturedPhoto }))
 
-		try {
-			const token = (await GoogleSignin.getTokens()).accessToken
-			GDrive.setAccessToken(token)
-			GDrive.init()
+		let payload = null
 
+		try {
+			// 1. Kompresja (robimy to zawsze, żeby plik w cache był gotowy)
 			const photoUri = `file://${capturedPhoto.path}`
 			const compressedUri = await compressImage(photoUri)
-			const cleanPath = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`
-			const base64 = await RNFetchBlob.fs.readFile(cleanPath, 'base64')
+			const folderId = await AsyncStorage.getItem('@PhotosFolderId')
 
-			const result = await GDrive.files.createFileMultipart(
-				base64,
-				'image/jpeg',
-				{ parents: [await AsyncStorage.getItem('@PhotosFolderId')], name: selectedElementName },
-				true
-			)
+			// 2. Przygotowanie Payloadu
+			payload = {
+				type: 'photo', // <--- KLUCZOWE ROZRÓŻNIENIE
+				uri: compressedUri,
+				name: selectedElementName,
+				folderId: folderId,
+			}
 
-			if (result.ok) {
+			// 3. Sprawdzenie sieci
+			if (!isOnline) {
+				console.log('Offline: Kolejkowanie zdjęcia...')
+				await addToQueue(payload)
+
+				// Ustawiamy status na "queued" (nowy stan)
 				setUploadStatuses(prev => {
 					const n = [...prev]
-					n[selectedElementIndex] = 'success'
+					n[selectedElementIndex] = 'queued'
 					return n
 				})
-				setIsActive(false)
-			} else {
-				throw new Error('Upload failed')
+				setIsActive(false) // Zamykamy aparat
+				Alert.alert('Offline', 'Zdjęcie dodano do kolejki synchronizacji.')
+				return
 			}
-		} catch (error) {
-			console.error('Upload error:', error)
+
+			// 4. Wysyłka Online
+			const token = (await GoogleSignin.getTokens()).accessToken
+			await uploadPhotoService(token, payload.uri, payload.folderId, payload.name)
+
+			// Sukces
 			setUploadStatuses(prev => {
 				const n = [...prev]
-				n[selectedElementIndex] = 'error'
+				n[selectedElementIndex] = 'success'
 				return n
 			})
 			setIsActive(false)
+		} catch (error) {
+			console.error('Błąd zdjęcia:', error)
+
+			// Ratowanie do kolejki w przypadku błędu sieci
+			if (payload && (error.message.includes('Network') || !isOnline)) {
+				await addToQueue(payload)
+				setUploadStatuses(prev => {
+					const n = [...prev]
+					n[selectedElementIndex] = 'queued'
+					return n
+				})
+				Alert.alert('Offline', 'Problem z siecią. Zdjęcie trafiło do kolejki.')
+				setIsActive(false)
+			} else {
+				setUploadStatuses(prev => {
+					const n = [...prev]
+					n[selectedElementIndex] = 'error'
+					return n
+				})
+				Alert.alert('Błąd', 'Nie udało się zapisać zdjęcia.')
+			}
 		} finally {
 			setIsUploading(false)
 			setCapturedPhoto(null)
@@ -505,14 +537,43 @@ const DetailScreen = () => {
 								</TouchableOpacity>
 								{uploadStatuses[index] && (
 									<View
-										className={`mt-2 p-2 rounded-md flex-row items-center ${uploadStatuses[index] === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
+										className={`mt-2 p-2 rounded-md flex-row items-center ${
+											uploadStatuses[index] === 'success'
+												? 'bg-green-100'
+												: uploadStatuses[index] === 'queued'
+													? 'bg-yellow-100'
+													: 'bg-red-100' // <--- Obsługa żółtego koloru
+										}`}>
 										<Feather
-											name={uploadStatuses[index] === 'success' ? 'check-circle' : 'x-circle'}
+											name={
+												uploadStatuses[index] === 'success'
+													? 'check-circle'
+													: uploadStatuses[index] === 'queued'
+														? 'clock'
+														: 'x-circle' // <--- Ikona zegara
+											}
 											size={16}
-											color={uploadStatuses[index] === 'success' ? '#16A34A' : '#DC2626'}
+											color={
+												uploadStatuses[index] === 'success'
+													? '#16A34A'
+													: uploadStatuses[index] === 'queued'
+														? '#D97706'
+														: '#DC2626'
+											}
 										/>
-										<Text className='ml-2 font-medium text-gray-800'>
-											{uploadStatuses[index] === 'success' ? 'Zdjęcie wysłane' : 'Błąd wysyłania'}
+										<Text
+											className={`ml-2 font-medium ${
+												uploadStatuses[index] === 'success'
+													? 'text-green-800'
+													: uploadStatuses[index] === 'queued'
+														? 'text-yellow-800'
+														: 'text-red-800'
+											}`}>
+											{uploadStatuses[index] === 'success'
+												? 'Zdjęcie wysłane'
+												: uploadStatuses[index] === 'queued'
+													? 'Oczekuje na wysyłkę'
+													: 'Błąd wysyłania'}
 										</Text>
 									</View>
 								)}
