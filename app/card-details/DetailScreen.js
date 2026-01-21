@@ -76,6 +76,7 @@ const DetailScreen = () => {
 	const [switchValuesContent, setSwitchValuesContent] = useState([])
 	const [openSections, setOpenSections] = useState({})
 	const [uploadStatuses, setUploadStatuses] = useState([])
+	const [selectedLocalization, setSelectedLocalization] = useState('')
 
 	// --- EFEKTY (Licznik, BackHandler, Nawigacja) ---
 
@@ -141,7 +142,7 @@ const DetailScreen = () => {
 		try {
 			const response = await fetch(
 				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(title)}!A2:B`,
-				{ headers: { Authorization: `Bearer ${token}` } }
+				{ headers: { Authorization: `Bearer ${token}` } },
 			)
 			const result = await response.json()
 
@@ -180,7 +181,7 @@ const DetailScreen = () => {
 		try {
 			const response = await fetch(
 				`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(title)}!A1:P${SAFE_MAX_ROW_LIMIT}`,
-				{ headers: { Authorization: `Bearer ${token}` } }
+				{ headers: { Authorization: `Bearer ${token}` } },
 			)
 			const result = await response.json()
 			return result.values || []
@@ -230,18 +231,41 @@ const DetailScreen = () => {
 	// --- LOGIKA FORMULARZA ---
 
 	function mergeTemplateWithData(template, userData) {
+		if (!template || !userData) return []
+
 		const updatedTemplate = [...template]
-		let rowIndex = 1
-		userData.forEach((data, index) => {
-			if (index === 0 && data.length > 2) data.splice(2, 1)
-			const responses = data.slice(1)
-			while (rowIndex < updatedTemplate.length && updatedTemplate[rowIndex][0].endsWith('-')) {
-				rowIndex++
-			}
+		let rowIndex = 1 // Startujemy od 1, pomijając nagłówek tabeli
+
+		userData.forEach(data => {
+			// data[0] to nazwa sekcji np. "1.1 Ciągi..."
+			// responses to tablica odpowiedzi (bez nazwy sekcji i statusu accordion)
+			const responses = data.slice(2)
+
 			responses.forEach(response => {
 				if (rowIndex >= updatedTemplate.length) return
-				let status = '',
-					comment = ''
+
+				// --- INTELIGENTNE POMIJANIE NAGŁÓWKÓW PODKATEGORII ---
+
+				// Sprawdzamy ID bieżącego wiersza w Excelu (np. "1.", "1.1", "1.1.1")
+				let currentRowId = String(updatedTemplate[rowIndex][0] || '').trim()
+
+				// Regex sprawdzający czy to nagłówek podkategorii (np. "1.1" lub "1.1.")
+				// Wyjaśnienie: Cyfra + Kropka + Cyfra + Opcjonalna Kropka (i koniec)
+				// To wyklucza "1." (Główna - chcemy zapisać) oraz "1.1.1" (Pytanie - chcemy zapisać)
+				const isSubHeader = /^\d+\.\d+\.?$/.test(currentRowId)
+
+				if (isSubHeader) {
+					// Jeśli trafiliśmy na "1.1", przesuwamy się o jeden wiersz w dół,
+					// żeby odpowiedź trafiła do "1.1.1"
+					rowIndex++
+				}
+
+				// --- KONIEC LOGIKI POMIJANIA ---
+
+				// Teraz właściwy zapis
+				let status = ''
+				let comment = ''
+
 				const firstCommaIndex = response.indexOf(',')
 				if (firstCommaIndex !== -1) {
 					status = response.substring(0, firstCommaIndex).trim()
@@ -249,11 +273,16 @@ const DetailScreen = () => {
 				} else {
 					status = response.trim()
 				}
-				updatedTemplate[rowIndex][2] = status || ''
-				updatedTemplate[rowIndex][3] = comment || ''
+
+				if (updatedTemplate[rowIndex]) {
+					updatedTemplate[rowIndex][2] = status || ''
+					updatedTemplate[rowIndex][3] = comment || ''
+				}
+
 				rowIndex++
 			})
 		})
+
 		return updatedTemplate
 	}
 
@@ -414,6 +443,14 @@ const DetailScreen = () => {
 		let payload = null
 
 		try {
+			const sanitize = text => (text || '').replace(/[^\w\s\u00a0-\uffff.-]/g, '').trim()
+
+			const safeIdName = sanitize(selectedElementName) // np. "1.1 Schody"
+			const safeLoc = sanitize(selectedLocalization) || 'Ogólne' // np. "Budynek A"
+			const timestamp = Date.now()
+
+			const fileName = `${safeIdName}__${safeLoc}__${timestamp}.jpg`
+
 			// 1. Kompresja (robimy to zawsze, żeby plik w cache był gotowy)
 			const photoUri = `file://${capturedPhoto.path}`
 			const compressedUri = await compressImage(photoUri)
@@ -423,7 +460,7 @@ const DetailScreen = () => {
 			payload = {
 				type: 'photo', // <--- KLUCZOWE ROZRÓŻNIENIE
 				uri: compressedUri,
-				name: selectedElementName,
+				name: fileName,
 				folderId: folderId,
 			}
 
@@ -526,8 +563,41 @@ const DetailScreen = () => {
 							<View className='p-4 border-t border-gray-200'>
 								<TouchableOpacity
 									onPress={() => {
-										let com = comments[index]?.[0] || ''
-										setSelectedElementName(element.name + com)
+										// --- NOWA LOGIKA USTALANIA LOKALIZACJI ---
+
+										let determinedLocation = 'Ogólne'
+
+										// 1. Wyciągnij numer główny (np. "1" z "1.1" albo "8" z "8.2")
+										const mainCategoryMatch = element.name.match(/^(\d+)/)
+										const mainNum = mainCategoryMatch ? mainCategoryMatch[1] : null
+
+										if (mainNum) {
+											// 2. Znajdź indeks sekcji głównej w tablicy elements
+											// Szukamy sekcji, która zaczyna się od tego numeru I zawiera pole 'Lokalizacja'
+											const mainSectionIndex = elements.findIndex(
+												el => el.name.startsWith(mainNum + '.') && el.content.includes('Lokalizacja'),
+											)
+
+											if (mainSectionIndex !== -1) {
+												// 3. Pobierz tekst wpisany w polu 'Lokalizacja' tej głównej sekcji
+												const contentIndexLoc = elements[mainSectionIndex].content.indexOf('Lokalizacja')
+												if (contentIndexLoc !== -1) {
+													// Kluczowe: pobieramy z comments[mainSectionIndex], a nie z bieżącego index
+													determinedLocation = comments[mainSectionIndex]?.[contentIndexLoc] || 'Ogólne'
+												}
+											} else {
+												// Fallback: Jeśli to my jesteśmy główną sekcją (np. 1.), pobierz od nas
+												if (element.content.includes('Lokalizacja')) {
+													const idx = element.content.indexOf('Lokalizacja')
+													determinedLocation = comments[index]?.[idx] || 'Ogólne'
+												}
+											}
+										}
+
+										// --- KONIEC NOWEJ LOGIKI ---
+
+										setSelectedElementName(element.name)
+										setSelectedLocalization(determinedLocation) // <--- Używamy znalezionej lokalizacji
 										setSelectedElementIndex(index)
 										setIsActive(true)
 									}}
@@ -583,7 +653,7 @@ const DetailScreen = () => {
 				</View>
 			)
 		},
-		[openSections, switchValuesContent, comments, uploadStatuses, takenPhotos]
+		[openSections, switchValuesContent, comments, uploadStatuses, takenPhotos, elements],
 	)
 
 	if (isLoading) {
