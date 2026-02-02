@@ -131,6 +131,17 @@ const Popularjobs = () => {
 		{ id: 12, title: '12.INFORMACJE', icon: require('../../../assets/images/qa.png') },
 	]
 
+	const data_klatki_julia = [
+		{ id: 0, title: 'SZABLON', icon: require('../../../assets/images/szablon.png') },
+		{ id: 1, title: '1.OTOCZENIE ZEWNĘTRZNE', icon: require('../../../assets/images/zew.png') },
+		{ id: 2, title: '2.PARKING DLA OZN', icon: require('../../../assets/images/parking.jpg') },
+		{ id: 3, title: '3.STREFA WEJŚCIA', icon: require('../../../assets/images/strefaWej.jpg') },
+		{ id: 4, title: '4.SCHODY ZEWNĘTRZNE', icon: require('../../../assets/images/outdoor_stairs.jpg') },
+		{ id: 5, title: '5.POCHYLNIE', icon: require('../../../assets/images/ramp.jpg') },
+		{ id: 6, title: '6.KOMUNIKACJA PIONOWA', icon: require('../../../assets/images/stairs.jpg') },
+		{ id: 7, title: '7.INNE POMIESZCZENIA', icon: require('../../../assets/images/otherRooms.jpg') },
+	]
+
 	useFocusEffect(
 		React.useCallback(() => {
 			const fetchId = async () => {
@@ -162,6 +173,9 @@ const Popularjobs = () => {
 						case '11':
 							sourceData = data_szkola
 							break
+						case '12':
+							sourceData = data_klatki_julia
+							break
 						default:
 							sourceData = data_default
 							break
@@ -180,7 +194,7 @@ const Popularjobs = () => {
 			}
 
 			fetchId()
-		}, []) // Pusta tablica jest tu celowa, aby funkcja stworzyła się raz.
+		}, []), // Pusta tablica jest tu celowa, aby funkcja stworzyła się raz.
 	)
 
 	const handleCardPress = (id, title) => {

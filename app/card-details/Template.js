@@ -75,6 +75,13 @@ const templates = [
 		fileId: '164rvHjfeQVKqpKm_gUmS4macG1dMesmXGJNBRATZhJk',
 		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8',
 	},
+	{
+		id: '12',
+		name: 'Klatki - Julia',
+		templateKey: 'klatki-julia',
+		fileId: '1eQ8jVCYOPjdbBSnW4Tr_u_gjDTyubACVsOy-eUtvMBE',
+		text_id: '1O9rK-2vVyY0SyH7235tU96CKRD_0INBnTzjCFXtt8I8',
+	},
 ]
 
 const fetchExistingAudits = async accessToken => {
@@ -211,7 +218,7 @@ const TemplateManagerScreen = () => {
 
 			if (!auditSheet || !photosFolder || !infoFile) {
 				throw new Error(
-					"Wybrany folder jest niekompletny (brak arkusza, folderu 'Zdjęcia' lub pliku _audyt-info.json)."
+					"Wybrany folder jest niekompletny (brak arkusza, folderu 'Zdjęcia' lub pliku _audyt-info.json).",
 				)
 			}
 
@@ -229,11 +236,11 @@ const TemplateManagerScreen = () => {
 				auditMetadata.templateId, // Używamy odzyskanego id szablonu
 				auditMetadata.templateName, // Używamy odzyskanej nazwy szablonu
 				auditFolder.name,
-				folderId
+				folderId,
 			)
 			Alert.alert(
 				'Sukces',
-				`Wczytano audyt "${auditFolder.name}". Możesz teraz wrócić do ekranu głównego i kontynuować pracę.`
+				`Wczytano audyt "${auditFolder.name}". Możesz teraz wrócić do ekranu głównego i kontynuować pracę.`,
 			)
 		} catch (err) {
 			console.error('Błąd przy wczytywaniu istniejącego audytu:', err)
@@ -331,7 +338,7 @@ ${JSON.stringify(metadata)}
 				selectedTemplate.id,
 				selectedTemplate.name,
 				folderName,
-				mainFolderId
+				mainFolderId,
 			)
 		} catch (err) {
 			console.error('Błąd podczas tworzenia folderu i kopiowania szablonu', err)
