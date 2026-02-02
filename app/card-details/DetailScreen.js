@@ -75,7 +75,7 @@ const DetailScreen = () => {
 	const [comments, setComments] = useState([])
 	const [switchValuesContent, setSwitchValuesContent] = useState([])
 	const [openSections, setOpenSections] = useState({})
-	const [uploadStatuses, setUploadStatuses] = useState([])
+	const [uploadStatuses, setUploadStatuses] = useState({})
 	const [selectedLocalization, setSelectedLocalization] = useState('')
 
 	// --- EFEKTY (Licznik, BackHandler, Nawigacja) ---
@@ -472,7 +472,8 @@ const DetailScreen = () => {
 				// Ustawiamy status na "queued" (nowy stan)
 				setUploadStatuses(prev => {
 					const n = [...prev]
-					n[selectedElementIndex] = 'queued'
+					const currentCount = n[selectedElementIndex]?.count || 0
+					n[selectedElementIndex] = { status: 'queued', count: currentCount + 1 }
 					return n
 				})
 				setIsActive(false) // Zamykamy aparat
@@ -487,7 +488,8 @@ const DetailScreen = () => {
 			// Sukces
 			setUploadStatuses(prev => {
 				const n = [...prev]
-				n[selectedElementIndex] = 'success'
+				const currentCount = n[selectedElementIndex]?.count || 0
+				n[selectedElementIndex] = { status: 'success', count: currentCount + 1 }
 				return n
 			})
 			setIsActive(false)
@@ -499,7 +501,8 @@ const DetailScreen = () => {
 				await addToQueue(payload)
 				setUploadStatuses(prev => {
 					const n = [...prev]
-					n[selectedElementIndex] = 'queued'
+					const currentCount = n[selectedElementIndex]?.count || 0
+					n[selectedElementIndex] = { status: 'queued', count: currentCount + 1 }
 					return n
 				})
 				Alert.alert('Offline', 'Problem z siecią. Zdjęcie trafiło do kolejki.')
@@ -507,7 +510,8 @@ const DetailScreen = () => {
 			} else {
 				setUploadStatuses(prev => {
 					const n = [...prev]
-					n[selectedElementIndex] = 'error'
+					const currentCount = n[selectedElementIndex]?.count || 0
+					n[selectedElementIndex] = { status: 'error', count: currentCount }
 					return n
 				})
 				Alert.alert('Błąd', 'Nie udało się zapisać zdjęcia.')
@@ -608,42 +612,48 @@ const DetailScreen = () => {
 								{uploadStatuses[index] && (
 									<View
 										className={`mt-2 p-2 rounded-md flex-row items-center ${
-											uploadStatuses[index] === 'success'
+											uploadStatuses[index].status === 'success'
 												? 'bg-green-100'
-												: uploadStatuses[index] === 'queued'
+												: uploadStatuses[index].status === 'queued'
 													? 'bg-yellow-100'
 													: 'bg-red-100' // <--- Obsługa żółtego koloru
 										}`}>
 										<Feather
 											name={
-												uploadStatuses[index] === 'success'
+												uploadStatuses[index].status === 'success'
 													? 'check-circle'
-													: uploadStatuses[index] === 'queued'
+													: uploadStatuses[index].status === 'queued'
 														? 'clock'
 														: 'x-circle' // <--- Ikona zegara
 											}
 											size={16}
 											color={
-												uploadStatuses[index] === 'success'
+												uploadStatuses[index].status === 'success'
 													? '#16A34A'
-													: uploadStatuses[index] === 'queued'
+													: uploadStatuses[index].status === 'queued'
 														? '#D97706'
 														: '#DC2626'
 											}
 										/>
 										<Text
 											className={`ml-2 font-medium ${
-												uploadStatuses[index] === 'success'
+												uploadStatuses[index].status === 'success'
 													? 'text-green-800'
-													: uploadStatuses[index] === 'queued'
+													: uploadStatuses[index].status === 'queued'
 														? 'text-yellow-800'
 														: 'text-red-800'
 											}`}>
-											{uploadStatuses[index] === 'success'
-												? 'Zdjęcie wysłane'
-												: uploadStatuses[index] === 'queued'
-													? 'Oczekuje na wysyłkę'
-													: 'Błąd wysyłania'}
+											{(() => {
+												const { status, count } = uploadStatuses[index]
+
+												if (status === 'success') {
+													return count > 1 ? `Wysłano kolejne zdjęcie (${count})` : 'Zdjęcie wysłane'
+												} else if (status === 'queued') {
+													return count > 1 ? `W kolejce kolejne zdjęcie (${count})` : 'Oczekuje na wysyłkę'
+												} else {
+													return 'Błąd wysyłania'
+												}
+											})()}
 										</Text>
 									</View>
 								)}
