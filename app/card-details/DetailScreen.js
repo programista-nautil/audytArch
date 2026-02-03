@@ -423,8 +423,8 @@ const DetailScreen = () => {
 
 	const compressImage = async uri => {
 		try {
-			const manipResult = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1600 } }], {
-				compress: 0.7,
+			const manipResult = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1280 } }], {
+				compress: 0.5,
 				format: ImageManipulator.SaveFormat.JPEG,
 			})
 			return manipResult.uri
@@ -436,90 +436,99 @@ const DetailScreen = () => {
 	const handleUsePhoto = async () => {
 		if (!capturedPhoto) return
 
-		// Ustawiamy status na "w trakcie" (spinner)
-		setIsUploading(true)
-		setTakenPhotos(prev => ({ ...prev, [selectedElementIndex]: capturedPhoto }))
+		// 1. NATYCHMIASTOWE ZAMKNIĘCIE MODALA I POKAZANIE LOADERA W TLE
+		const currentPhotoPath = capturedPhoto.path // Kopiujemy ścieżkę, bo zaraz wyczyścimy stan
+		const currentElementName = selectedElementName
+		const currentLocalization = selectedLocalization
+		const currentIndex = selectedElementIndex
 
+		// Ustawiamy status "Wysyłanie..." (uploading)
+		setUploadStatuses(prev => {
+			const n = [...prev]
+			const currentCount = n[currentIndex]?.count || 0
+			// Zachowujemy licznik, ale zmieniamy status na uploading
+			n[currentIndex] = { status: 'uploading', count: currentCount }
+			return n
+		})
+
+		// Zamykamy aparat i czyścimy stan zdjęcia, żeby audytor mógł działać dalej
+		setIsActive(false)
+		setCapturedPhoto(null)
+		setIsUploading(false) // Wyłączamy spinner w modalu (bo modal znika)
+
+		// 2. LOGIKA W TLE (FIRE AND FORGET)
+		// Używamy IIFE (Immediately Invoked Function Expression) lub po prostu wywołujemy funkcję async bez await
+		performBackgroundUpload(currentPhotoPath, currentElementName, currentLocalization, currentIndex)
+	}
+
+	// Wydzielona funkcja, która działa w tle
+	const performBackgroundUpload = async (photoPath, elementName, localization, index) => {
 		let payload = null
 
 		try {
 			const sanitize = text => (text || '').replace(/[^\w\s\u00a0-\uffff.-]/g, '').trim()
-
-			const safeIdName = sanitize(selectedElementName) // np. "1.1 Schody"
-			const safeLoc = sanitize(selectedLocalization) || 'Ogólne' // np. "Budynek A"
+			const safeIdName = sanitize(elementName)
+			const safeLoc = sanitize(localization) || 'Ogólne'
 			const timestamp = Date.now()
-
 			const fileName = `${safeIdName}__${safeLoc}__${timestamp}.jpg`
 
-			// 1. Kompresja (robimy to zawsze, żeby plik w cache był gotowy)
-			const photoUri = `file://${capturedPhoto.path}`
+			const photoUri = `file://${photoPath}`
 			const compressedUri = await compressImage(photoUri)
 			const folderId = await AsyncStorage.getItem('@PhotosFolderId')
 
-			// 2. Przygotowanie Payloadu
 			payload = {
-				type: 'photo', // <--- KLUCZOWE ROZRÓŻNIENIE
+				type: 'photo',
 				uri: compressedUri,
 				name: fileName,
 				folderId: folderId,
 			}
 
-			// 3. Sprawdzenie sieci
+			// Sprawdzenie sieci
 			if (!isOnline) {
 				console.log('Offline: Kolejkowanie zdjęcia...')
 				await addToQueue(payload)
 
-				// Ustawiamy status na "queued" (nowy stan)
-				setUploadStatuses(prev => {
-					const n = [...prev]
-					const currentCount = n[selectedElementIndex]?.count || 0
-					n[selectedElementIndex] = { status: 'queued', count: currentCount + 1 }
-					return n
-				})
-				setIsActive(false) // Zamykamy aparat
-				Alert.alert('Offline', 'Zdjęcie dodano do kolejki synchronizacji.')
+				updateStatus(index, 'queued')
 				return
 			}
 
-			// 4. Wysyłka Online
+			// Wysyłka Online
 			const token = (await GoogleSignin.getTokens()).accessToken
 			await uploadPhotoService(token, payload.uri, payload.folderId, payload.name)
 
 			// Sukces
-			setUploadStatuses(prev => {
-				const n = [...prev]
-				const currentCount = n[selectedElementIndex]?.count || 0
-				n[selectedElementIndex] = { status: 'success', count: currentCount + 1 }
-				return n
-			})
-			setIsActive(false)
+			updateStatus(index, 'success')
 		} catch (error) {
-			console.error('Błąd zdjęcia:', error)
+			console.error('Błąd zdjęcia w tle:', error)
 
-			// Ratowanie do kolejki w przypadku błędu sieci
+			// Ratowanie do kolejki
 			if (payload && (error.message.includes('Network') || !isOnline)) {
 				await addToQueue(payload)
-				setUploadStatuses(prev => {
-					const n = [...prev]
-					const currentCount = n[selectedElementIndex]?.count || 0
-					n[selectedElementIndex] = { status: 'queued', count: currentCount + 1 }
-					return n
-				})
-				Alert.alert('Offline', 'Problem z siecią. Zdjęcie trafiło do kolejki.')
-				setIsActive(false)
+				updateStatus(index, 'queued')
 			} else {
-				setUploadStatuses(prev => {
-					const n = [...prev]
-					const currentCount = n[selectedElementIndex]?.count || 0
-					n[selectedElementIndex] = { status: 'error', count: currentCount }
-					return n
-				})
-				Alert.alert('Błąd', 'Nie udało się zapisać zdjęcia.')
+				updateStatus(index, 'error')
+				// Opcjonalnie: cichy Alert lub Toast, że coś poszło nie tak w tle
+				Alert.alert('Błąd wysyłania', `Zdjęcie "${elementName}" nie zostało wysłane.`)
 			}
-		} finally {
-			setIsUploading(false)
-			setCapturedPhoto(null)
 		}
+	}
+
+	// Helper do aktualizacji stanu
+	const updateStatus = (index, status) => {
+		setUploadStatuses(prev => {
+			const n = [...prev]
+			const currentCount = n[index]?.count || 0
+			// Jeśli sukces/kolejka -> zwiększamy licznik (jeśli to była nowa operacja, a nie retry)
+			// Tutaj dla uproszczenia przy success/queued zwiększamy o 1 względem stanu sprzed uploadu
+			// Ale uwaga: w handleUsePhoto nie zwiększyliśmy. Zróbmy to teraz.
+
+			// Jeśli status to uploading -> nie zmieniamy licznika
+			// Jeśli status to success/queued -> zwiększamy licznik
+			const newCount = status === 'success' || status === 'queued' ? currentCount + 1 : currentCount
+
+			n[index] = { status: status, count: newCount }
+			return n
+		})
 	}
 
 	// --- RENDER ---
@@ -616,37 +625,49 @@ const DetailScreen = () => {
 												? 'bg-green-100'
 												: uploadStatuses[index].status === 'queued'
 													? 'bg-yellow-100'
-													: 'bg-red-100' // <--- Obsługa żółtego koloru
+													: uploadStatuses[index].status === 'uploading' // <--- Nowy stan
+														? 'bg-blue-100'
+														: 'bg-red-100'
 										}`}>
-										<Feather
-											name={
-												uploadStatuses[index].status === 'success'
-													? 'check-circle'
-													: uploadStatuses[index].status === 'queued'
-														? 'clock'
-														: 'x-circle' // <--- Ikona zegara
-											}
-											size={16}
-											color={
-												uploadStatuses[index].status === 'success'
-													? '#16A34A'
-													: uploadStatuses[index].status === 'queued'
-														? '#D97706'
-														: '#DC2626'
-											}
-										/>
+										{/* IKONA LUB LOADER */}
+										{uploadStatuses[index].status === 'uploading' ? (
+											<ActivityIndicator size='small' color='#2563EB' /> // Niebieski loader
+										) : (
+											<Feather
+												name={
+													uploadStatuses[index].status === 'success'
+														? 'check-circle'
+														: uploadStatuses[index].status === 'queued'
+															? 'clock'
+															: 'x-circle'
+												}
+												size={16}
+												color={
+													uploadStatuses[index].status === 'success'
+														? '#16A34A'
+														: uploadStatuses[index].status === 'queued'
+															? '#D97706'
+															: '#DC2626'
+												}
+											/>
+										)}
+
 										<Text
 											className={`ml-2 font-medium ${
 												uploadStatuses[index].status === 'success'
 													? 'text-green-800'
 													: uploadStatuses[index].status === 'queued'
 														? 'text-yellow-800'
-														: 'text-red-800'
+														: uploadStatuses[index].status === 'uploading'
+															? 'text-blue-800'
+															: 'text-red-800'
 											}`}>
 											{(() => {
 												const { status, count } = uploadStatuses[index]
 
-												if (status === 'success') {
+												if (status === 'uploading') {
+													return 'Wysyłanie w tle...'
+												} else if (status === 'success') {
 													return count > 1 ? `Wysłano kolejne zdjęcie (${count})` : 'Zdjęcie wysłane'
 												} else if (status === 'queued') {
 													return count > 1 ? `W kolejce kolejne zdjęcie (${count})` : 'Oczekuje na wysyłkę'
