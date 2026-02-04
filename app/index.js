@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, Image, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
 import { Stack, useRouter, useFocusEffect } from 'expo-router'
 import Welcome from '../components/home/welcome/Welcome'

@@ -1,15 +1,7 @@
 // Plik: components/common/CommentInput.js
 import React, { useState, useEffect, useRef } from 'react'
-import {
-	View,
-	TextInput,
-	TouchableOpacity,
-	StyleSheet,
-	ActivityIndicator,
-	Text,
-	Modal,
-	SafeAreaView,
-} from 'react-native'
+import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Text, Modal } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { File } from 'expo-file-system'
 import { MaterialIcons } from '@expo/vector-icons'
 // import SpeechRecognitionService from '../../../services/SpeechRecognitionService'

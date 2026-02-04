@@ -3,6 +3,7 @@ import { Stack } from 'expo-router'
 import { useCallback, useEffect } from 'react'
 import { useFonts } from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -32,7 +33,11 @@ const Layout = () => {
 		return null
 	}
 
-	return <Stack onLayout={onLayoutRootView} />
+	return (
+		<SafeAreaProvider>
+			<Stack onLayout={onLayoutRootView} />
+		</SafeAreaProvider>
+	)
 }
 
 export default Layout

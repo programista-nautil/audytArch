@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, Alert } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAudioRecorder, useAudioRecorderState, AudioModule, RecordingPresets } from 'expo-audio'
 import { Stack } from 'expo-router'
 import { Feather } from '@expo/vector-icons'

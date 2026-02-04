@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import { Provider, TextInput } from 'react-native-paper'
 import AsyncStorage from '@react-native-async-storage/async-storage'

@@ -9,10 +9,10 @@ import {
 	BackHandler,
 	ActivityIndicator,
 	TouchableOpacity,
-	SafeAreaView,
 	Modal,
 	FlatList,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather, FontAwesome5 } from '@expo/vector-icons'
 import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
@@ -750,7 +750,7 @@ const DetailScreen = () => {
 									className='absolute top-12 left-5 bg-black/50 p-3 rounded-full'>
 									<Feather name='x' size={24} color='white' />
 								</TouchableOpacity>
-								<View className='absolute bottom-10 w-full items-center'>
+								<View className='absolute bottom-20 w-full items-center'>
 									<TouchableOpacity
 										onPress={onTakePicturePressed}
 										disabled={isCapturing}
@@ -770,17 +770,17 @@ const DetailScreen = () => {
 									style={StyleSheet.absoluteFill}
 									resizeMode='contain'
 								/>
-								<View className='absolute bottom-10 w-full flex-row justify-around items-center'>
+								<View className='absolute bottom-20 w-full flex-row justify-around items-center'>
 									<TouchableOpacity
 										onPress={() => setCapturedPhoto(null)}
 										disabled={isUploading}
-										className='items-center'>
+										className='items-center mb-2'>
 										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
 											<Feather name='x' size={32} color='white' />
 										</View>
 										<Text className='text-white font-bold mt-2'>Powtórz</Text>
 									</TouchableOpacity>
-									<TouchableOpacity onPress={handleUsePhoto} disabled={isUploading} className='items-center'>
+									<TouchableOpacity onPress={handleUsePhoto} disabled={isUploading} className='items-center mb-2'>
 										<View className='h-16 w-16 bg-black/40 rounded-full justify-center items-center'>
 											<Feather name='check' size={32} color='white' />
 										</View>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { StyleSheet, ScrollView, SafeAreaView, Platform, Alert } from 'react-native'
+import { StyleSheet, ScrollView, Platform, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { LightSensor } from 'expo-sensors'
 import { Stack } from 'expo-router'
 import MeasurementRecorder from '../../components/home/tools/MeasurementRecorder'
