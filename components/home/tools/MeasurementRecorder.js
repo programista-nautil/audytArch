@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import GDrive from 'react-native-google-drive-api-wrapper'
-import RNFetchBlob from 'rn-fetch-blob'
+import { File, Paths } from 'expo-file-system'
 
 /**
  * Komponent do zarządzania pomiarami (Światło, Dźwięk itp.)
@@ -128,10 +128,14 @@ const MeasurementRecorder = ({ value, unit, title, iconName = 'activity', levelI
 				finalContent = header + newRows
 			}
 
-			// C. Przygotowanie pliku do wysyłki
-			const filePath = `${RNFetchBlob.fs.dirs.CacheDir}/${fileName}`
-			await RNFetchBlob.fs.writeFile(filePath, finalContent, 'utf8')
-			const base64 = await RNFetchBlob.fs.readFile(filePath, 'base64')
+			const file = new File(Paths.cache, fileName)
+
+			// Tworzymy plik (jeśli nie istnieje) i zapisujemy treść
+			file.create()
+			file.write(finalContent)
+
+			// Odczytujemy jako Base64 do wysyłki
+			const base64 = await file.base64()
 
 			// D. Wysyłka (PATCH lub POST)
 			let result

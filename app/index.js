@@ -149,6 +149,20 @@ const HomeScreen = () => {
 							</View>
 							<Feather name='chevron-right' size={24} color='white' />
 						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => router.push('/test/sound-meter')}
+							className='mx-4 mt-2 mb-6 bg-purple-600 p-4 rounded-xl shadow-md flex-row items-center justify-between'>
+							<View className='flex-row items-center'>
+								<View className='bg-white/20 p-2 rounded-lg'>
+									<Feather name='tool' size={24} color='white' />
+								</View>
+								<View className='ml-3'>
+									<Text className='text-white font-bold text-lg'>Sonometr</Text>
+									<Text className='text-purple-100 text-xs'>Mierzenie głośności</Text>
+								</View>
+							</View>
+							<Feather name='chevron-right' size={24} color='white' />
+						</TouchableOpacity>
 					</View>
 				)}
 			/>

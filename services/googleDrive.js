@@ -1,4 +1,4 @@
-import RNFetchBlob from 'rn-fetch-blob'
+import { File } from 'expo-file-system'
 import GDrive from 'react-native-google-drive-api-wrapper'
 
 /**
@@ -9,25 +9,42 @@ export const uploadPhotoService = async (accessToken, photoUri, folderId, fileNa
 	GDrive.setAccessToken(accessToken)
 	GDrive.init()
 
-	// Upewniamy się, że ścieżka ma prefiks file://
-	const cleanPath = photoUri.startsWith('file://') ? photoUri : `file://${photoUri}`
+	const cleanUri = photoUri.startsWith('file://') ? photoUri : `file://${photoUri}`
+	const file = new File(cleanUri)
 
-	// Czytamy plik jako base64
-	const base64 = await RNFetchBlob.fs.readFile(cleanPath, 'base64')
+	// 2. Pobieramy base64 (Nowe API)
+	const base64 = await file.base64()
 
-	// Wysyłamy
-	const result = await GDrive.files.createFileMultipart(
-		base64,
-		'image/jpeg',
-		{
-			parents: [folderId],
-			name: fileName,
+	// 3. Budowanie body multipart (bez zmian)
+	const metadata = {
+		name: fileName,
+		parents: [folderId],
+		mimeType: 'image/jpeg',
+	}
+
+	const body =
+		`--foo_bar_baz\r\n` +
+		`Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+		`${JSON.stringify(metadata)}\r\n` +
+		`--foo_bar_baz\r\n` +
+		`Content-Type: image/jpeg\r\n` +
+		`Content-Transfer-Encoding: base64\r\n\r\n` +
+		`${base64}\r\n` +
+		`--foo_bar_baz--`
+
+	const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			'Content-Type': 'multipart/related; boundary=foo_bar_baz',
+			'Content-Length': body.length.toString(),
 		},
-		true
-	)
+		body: body,
+	})
 
-	if (!result.ok) {
-		throw new Error('Google Drive Upload Failed')
+	if (!response.ok) {
+		const errorText = await response.text()
+		throw new Error(`Google Drive Upload Failed: ${response.status} - ${errorText}`)
 	}
 
 	return true

@@ -10,9 +10,9 @@ import {
 	Modal,
 	SafeAreaView,
 } from 'react-native'
-import RNFetchBlob from 'rn-fetch-blob'
+import { File } from 'expo-file-system'
 import { MaterialIcons } from '@expo/vector-icons'
-import SpeechRecognitionService from '../../../services/SpeechRecognitionService'
+// import SpeechRecognitionService from '../../../services/SpeechRecognitionService'
 import AIService from '../../../services/AIService'
 
 const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) => {
@@ -27,11 +27,11 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) =>
 	const textInputRef = useRef(null)
 	const initialTextRef = useRef('')
 
-	useEffect(() => {
-		return () => {
-			SpeechRecognitionService.destroy()
-		}
-	}, [])
+	// useEffect(() => {
+	// 	return () => {
+	// 		SpeechRecognitionService.destroy()
+	// 	}
+	// }, [])
 
 	const onSpeechStart = () => {
 		console.log('Rozpoczęto nasłuchiwanie...')
@@ -68,19 +68,19 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) =>
 	}
 
 	const handleMicPress = () => {
-		if (isListening) {
-			SpeechRecognitionService.stopListening()
-		} else {
-			// Zapisujemy aktualny tekst przed rozpoczęciem nasłuchiwania
-			initialTextRef.current = value
-			setError('') // Czyścimy ewentualne błędy
-			SpeechRecognitionService.startListening('pl-PL', {
-				onStart: onSpeechStart,
-				onResult: onSpeechResults,
-				onError: onSpeechError,
-				onEnd: onSpeechEnd,
-			})
-		}
+		// if (isListening) {
+		// 	SpeechRecognitionService.stopListening()
+		// } else {
+		// 	// Zapisujemy aktualny tekst przed rozpoczęciem nasłuchiwania
+		// 	initialTextRef.current = value
+		// 	setError('') // Czyścimy ewentualne błędy
+		// 	SpeechRecognitionService.startListening('pl-PL', {
+		// 		onStart: onSpeechStart,
+		// 		onResult: onSpeechResults,
+		// 		onError: onSpeechError,
+		// 		onEnd: onSpeechEnd,
+		// 	})
+		// }
 	}
 
 	const handleAiIconPress = () => {
@@ -106,10 +106,22 @@ const CommentInput = ({ value, onChangeText, placeholder, aiContext, photo }) =>
 
 			if (photo && photo.path) {
 				try {
-					console.log(`Odczytywanie zdjęcia z ścieżki: ${photo.path}`)
-					base64Image = await RNFetchBlob.fs.readFile(photo.path, 'base64')
+					let imageUri = photo.path
+					if (!imageUri.startsWith('file://')) {
+						imageUri = `file://${imageUri}`
+					}
+
+					console.log(`Odczytywanie zdjęcia z URI: ${imageUri}`)
+
+					const file = new File(imageUri)
+
+					if (!file.exists) {
+						throw new Error('Plik zdjęcia nie istnieje')
+					}
+
+					base64Image = await file.base64()
+
 					console.log('Zdjęcie pomyślnie zakodowano.')
-					console.log('Rozmiar zdjęcia w base64:', base64Image.length)
 				} catch (readError) {
 					console.error('Błąd odczytu pliku zdjęcia:', readError)
 					Alert.alert('Błąd', 'Nie udało się odczytać pliku zdjęcia. Spróbuj zrobić je ponownie.')
