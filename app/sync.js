@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Stack, useFocusEffect } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
@@ -17,7 +18,7 @@ const SyncScreen = () => {
 		useCallback(() => {
 			console.log('Otwarto ekran synchronizacji, odświeżam kolejkę...')
 			loadQueue()
-		}, [loadQueue])
+		}, [loadQueue]),
 	)
 
 	const handleSyncAll = async () => {
