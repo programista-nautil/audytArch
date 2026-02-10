@@ -11,9 +11,9 @@ const SoundMeterScreen = () => {
 		...RecordingPresets.LOW_QUALITY,
 		isMeteringEnabled: true,
 	})
+
 	const recorderState = useAudioRecorderState(audioRecorder, 100)
 
-	// Statystyki
 	const [currentDb, setCurrentDb] = useState(0)
 	const [stats, setStats] = useState({ min: 0, max: 0, avg: 0, median: 0 })
 	const samplesRef = useRef([])
@@ -27,7 +27,6 @@ const SoundMeterScreen = () => {
 		})()
 	}, [])
 
-	// 4. Logika Obliczeniowa
 	useEffect(() => {
 		if (recorderState.isRecording && typeof recorderState.metering === 'number') {
 			const rawDb = recorderState.metering
@@ -40,10 +39,7 @@ const SoundMeterScreen = () => {
 		}
 	}, [recorderState.metering, recorderState.isRecording])
 
-	// 5. LOGIKA OBLICZENIOWA
 	const updateStats = newVal => {
-		if (!isRecordingRef.current) return
-
 		setCurrentDb(newVal)
 		samplesRef.current.push(newVal)
 
@@ -65,12 +61,10 @@ const SoundMeterScreen = () => {
 
 	const startRecording = async () => {
 		try {
-			// Resetujemy dane
 			samplesRef.current = []
 			setStats({ min: 0, max: 0, avg: 0, median: 0 })
 			setCurrentDb(0)
 
-			// Start (expo-audio)
 			await audioRecorder.prepareToRecordAsync()
 			audioRecorder.record()
 		} catch (err) {
@@ -88,38 +82,11 @@ const SoundMeterScreen = () => {
 	}
 
 	const getSoundLevelDescription = db => {
-		if (db < 35)
-			return {
-				text: 'Bardzo cicho / Strefa ciszy',
-				color: 'text-green-600',
-			}
-
-		// 35-50dB: Optymalne warunki biurowe
-		if (db < 50)
-			return {
-				text: 'Ciche biuro / Biblioteka',
-				color: 'text-teal-600', // Spokojny, bezpieczny kolor
-			}
-
-		// 50-65dB: Standardowe tło, akceptowalne
-		if (db < 65)
-			return {
-				text: 'Rozmowa / Open Space',
-				color: 'text-yellow-600', // Ostrzegawczy - zaczyna być głośno
-			}
-
-		// 65-80dB: Utrudniona komunikacja
-		if (db < 80)
-			return {
-				text: 'Głośno / Hałas uliczny',
-				color: 'text-orange-600', // Wyraźne ostrzeżenie
-			}
-
-		// Powyżej 80dB: Zagrożenie lub silny dyskomfort
-		return {
-			text: 'Szkodliwy hałas / Zagrożenie',
-			color: 'text-red-600', // Alarmowy
-		}
+		if (db < 35) return { text: 'Bardzo cicho / Strefa ciszy', color: 'text-green-600' }
+		if (db < 50) return { text: 'Ciche biuro / Biblioteka', color: 'text-teal-600' }
+		if (db < 65) return { text: 'Rozmowa / Open Space', color: 'text-yellow-600' }
+		if (db < 80) return { text: 'Głośno / Hałas uliczny', color: 'text-orange-600' }
+		return { text: 'Szkodliwy hałas / Zagrożenie', color: 'text-red-600' }
 	}
 
 	return (
@@ -128,7 +95,6 @@ const SoundMeterScreen = () => {
 
 			<ScrollView contentContainerStyle={{ padding: 20 }}>
 				{/* --- SEKCJA STATYSTYK --- */}
-				{/* Pokazujemy to tylko gdy mamy jakieś dane, żeby audytor widział co się dzieje */}
 				<View className='flex-row justify-between mb-6'>
 					<View className='bg-white p-4 rounded-xl flex-1 mr-2 items-center border border-gray-100 shadow-sm'>
 						<Text className='text-gray-500 text-xs uppercase font-bold'>Min</Text>
@@ -145,7 +111,6 @@ const SoundMeterScreen = () => {
 				</View>
 
 				{/* --- GŁÓWNY KOMPONENT REJESTRATORA --- */}
-				{/* Przekazujemy medianę jako główną wartość do zapisu! */}
 				<MeasurementRecorder
 					title='Głośność'
 					value={recorderState.isRecording ? currentDb : stats.median}
@@ -157,7 +122,6 @@ const SoundMeterScreen = () => {
 					onStop={stopRecording}
 				/>
 
-				{/* Informacja dla użytkownika */}
 				<View className='mt-6 p-4 bg-yellow-50 rounded-xl border border-yellow-200'>
 					<View className='flex-row items-start'>
 						<Feather name='info' size={20} color='#D97706' style={{ marginTop: 2 }} />
@@ -165,7 +129,7 @@ const SoundMeterScreen = () => {
 							Pomiar głośności w telefonie jest wartością orientacyjną.
 							{'\n\n'}
 							System automatycznie oblicza <Text className='font-bold'>średnią głośność</Text> z czasu trwania pomiaru,
-							aby wyeliminować chwilowe hałasy. To właśnie średnia zostanie zapisana.
+							aby wyeliminować chwilowe hałasy. To właśnie ta uśredniona wartość (mediana) zostanie zapisana.
 						</Text>
 					</View>
 				</View>
