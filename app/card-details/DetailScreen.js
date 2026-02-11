@@ -20,12 +20,14 @@ import { useCameraPermission, useCameraDevice, Camera } from 'react-native-visio
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Stack, router } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
+import MiniLuxMeter from '../../components/home/common/MiniLuxMeter'
 import * as ImageManipulator from 'expo-image-manipulator'
 import { useOfflineQueue } from '../../hooks/useOfflineQueue' // <--- 1. IMPORT HOOKA
 import { executeUpload, getSheetMetadata } from '../../services/googleSheets' // <--- 2. IMPORT SERWISU
 import { uploadPhotoService } from '../../services/googleDrive'
 
 const SAFE_MAX_ROW_LIMIT = 100
+const LUX_IDS = ['10.1.3', '7.2.8', '8.4.2', '9.5.2', '11.6.2', '13.3.3', '15.1.8']
 
 // Pobieranie danych konfiguracyjnych
 const retrieveData = async () => {
@@ -75,6 +77,17 @@ const DetailScreen = () => {
 	const [openSections, setOpenSections] = useState({})
 	const [uploadStatuses, setUploadStatuses] = useState({})
 	const [selectedLocalization, setSelectedLocalization] = useState('')
+
+	const [luxValues, setLuxValues] = useState({})
+
+	const handleLuxSave = (index, contentIndex, value) => {
+		setLuxValues(prev => {
+			const newState = { ...prev }
+			if (!newState[index]) newState[index] = {}
+			newState[index][contentIndex] = value
+			return newState
+		})
+	}
 
 	// --- EFEKTY (Licznik, BackHandler, Nawigacja) ---
 
@@ -334,7 +347,18 @@ const DetailScreen = () => {
 				let row = [element.name, openSections[index] ? 'Tak' : 'Nie']
 				element.content.forEach((content, contentIndex) => {
 					const state = switchValuesContent[index]?.[contentIndex] || 'Nie dotyczy'
-					const comment = comments[index]?.[contentIndex] || ''
+					let comment = comments[index]?.[contentIndex] || ''
+
+					const luxVal = luxValues[index]?.[contentIndex]
+					if (luxVal !== undefined && luxVal !== null) {
+						const luxInfo = `[POMIAR: ${luxVal} lx]`
+						if (comment) {
+							comment = `${luxInfo} ${comment}`
+						} else {
+							comment = luxInfo
+						}
+					}
+
 					row.push(comment.trim() !== '' ? `${state}, ${comment}` : state)
 				})
 				return row
@@ -546,31 +570,41 @@ const DetailScreen = () => {
 					</View>
 					{openSections[index] && (
 						<View>
-							{element.content.map((content, contentIndex) => (
-								<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
-									<Text className='text-base text-gray-700 mb-4'>{content}</Text>
-									<View className='flex-row flex-wrap gap-2 mb-4'>
-										{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
-											<TouchableOpacity
-												key={value}
-												onPress={() => handleSwitchContent(index, contentIndex, value)}
-												className={`px-3 py-2 rounded-full border ${switchValuesContent[index]?.[contentIndex] === value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
-												<Text
-													className={`font-semibold ${switchValuesContent[index]?.[contentIndex] === value ? 'text-white' : 'text-gray-700'}`}>
-													{value}
-												</Text>
-											</TouchableOpacity>
-										))}
+							{element.content.map((content, contentIndex) => {
+								const isLuxRequired = LUX_IDS.some(id => content.startsWith(id))
+
+								return (
+									<View key={contentIndex} className='bg-gray-50 p-4 border-t border-gray-200'>
+										<Text className='text-base text-gray-700 mb-4'>{content}</Text>
+										{isLuxRequired && (
+											<MiniLuxMeter
+												initialValue={luxValues[index]?.[contentIndex]}
+												onSave={val => handleLuxSave(index, contentIndex, val)}
+											/>
+										)}
+										<View className='flex-row flex-wrap gap-2 mb-4'>
+											{['Tak', 'Nie', 'Nie dotyczy'].map(value => (
+												<TouchableOpacity
+													key={value}
+													onPress={() => handleSwitchContent(index, contentIndex, value)}
+													className={`px-3 py-2 rounded-full border ${switchValuesContent[index]?.[contentIndex] === value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+													<Text
+														className={`font-semibold ${switchValuesContent[index]?.[contentIndex] === value ? 'text-white' : 'text-gray-700'}`}>
+														{value}
+													</Text>
+												</TouchableOpacity>
+											))}
+										</View>
+										<CommentInput
+											placeholder='Dodaj uwagi...'
+											value={comments[index]?.[contentIndex] || ''}
+											onChangeText={text => handleCommentChange(index, contentIndex, text)}
+											aiContext={`- Kat: ${title}\n- Podkat: ${element.name}\n- Kryt: ${content}`}
+											photo={takenPhotos[index]}
+										/>
 									</View>
-									<CommentInput
-										placeholder='Dodaj uwagi...'
-										value={comments[index]?.[contentIndex] || ''}
-										onChangeText={text => handleCommentChange(index, contentIndex, text)}
-										aiContext={`- Kat: ${title}\n- Podkat: ${element.name}\n- Kryt: ${content}`}
-										photo={takenPhotos[index]}
-									/>
-								</View>
-							))}
+								)
+							})}
 							<View className='p-4 border-t border-gray-200'>
 								<TouchableOpacity
 									onPress={() => {
