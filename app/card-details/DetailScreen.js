@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Stack, router } from 'expo-router'
 import CommentInput from '../../components/home/common/CommentInput'
 import MiniLuxMeter from '../../components/home/common/MiniLuxMeter'
+import LocationFetcher from '../../components/home/common/LocationFetcher'
 import * as ImageManipulator from 'expo-image-manipulator'
 import { useOfflineQueue } from '../../hooks/useOfflineQueue' // <--- 1. IMPORT HOOKA
 import { executeUpload, getSheetMetadata } from '../../services/googleSheets' // <--- 2. IMPORT SERWISU
@@ -28,6 +29,7 @@ import { uploadPhotoService } from '../../services/googleDrive'
 
 const SAFE_MAX_ROW_LIMIT = 100
 const LUX_IDS = ['10.1.3', '7.2.8', '8.4.2', '9.5.2', '11.6.2', '13.3.3', '15.1.8']
+const GPS_CATEGORIES = ['1.', '2.', '3.', '4.']
 
 // Pobieranie danych konfiguracyjnych
 const retrieveData = async () => {
@@ -301,6 +303,27 @@ const DetailScreen = () => {
 		setOpenSections(prev => ({ ...prev, [index]: !prev[index] }))
 	}
 
+	const handleLocationAdd = (index, coordsStr) => {
+		const contentIndex = 0
+
+		setComments(prev => {
+			const updated = [...prev]
+			if (!updated[index]) updated[index] = {}
+
+			let currentText = updated[index][contentIndex] || ''
+			const gpsTag = `[GPS: ${coordsStr}]`
+
+			if (currentText.includes('[GPS:')) {
+				currentText = currentText.replace(/\[GPS:.*?\]/, gpsTag)
+			} else {
+				currentText = `${currentText} ${gpsTag}`.trim()
+			}
+
+			updated[index][contentIndex] = currentText
+			return updated
+		})
+	}
+
 	const handleCommentChange = (index, contentIndex, text) => {
 		setComments(prev => {
 			const updated = [...prev]
@@ -488,9 +511,10 @@ const DetailScreen = () => {
 		let payload = null
 
 		try {
+			const cleanLocalization = (localization || '').replace(/\[GPS:.*?\]/g, '').trim()
 			const sanitize = text => (text || '').replace(/[^\w\s\u00a0-\uffff.-]/g, '').trim()
 			const safeIdName = sanitize(elementName)
-			const safeLoc = sanitize(localization) || 'Ogólne'
+			const safeLoc = sanitize(cleanLocalization) || 'Ogólne'
 			const timestamp = Date.now()
 			const fileName = `${safeIdName}__${safeLoc}__${timestamp}.jpg`
 
@@ -570,6 +594,19 @@ const DetailScreen = () => {
 					</View>
 					{openSections[index] && (
 						<View>
+							{(() => {
+								const shouldShowGPS = GPS_CATEGORIES.some(cat => element.name.startsWith(cat))
+
+								if (shouldShowGPS) {
+									return (
+										<View className='px-4 pt-2 bg-gray-50'>
+											<LocationFetcher onLocationFound={coords => handleLocationAdd(index, coords)} />
+										</View>
+									)
+								}
+								return null
+							})()}
+
 							{element.content.map((content, contentIndex) => {
 								const isLuxRequired = LUX_IDS.some(id => content.startsWith(id))
 

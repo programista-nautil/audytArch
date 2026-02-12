@@ -1,51 +1,55 @@
 {
-  "expo": {
-    "version": "16.0",
-    "scheme": "my-app",
-    "web": {
-      "bundler": "metro"
-    },
-    "description": "Krótki opis aplikacji ArchKontrol",
-    "name": "ArchKontrol",
-    "slug": "my-app",
-    "icon": "./assets/images/architecture.png",
-    "extra": {
-      "eas": {
-        "projectId": "7ed077cc-feff-41a8-8495-1886e189aaec"
-      }
-    },
-    "android": {
-      "package": "com.daamian.myapp"
-    },
-    "ios": {
-      "bundleIdentifier": "com.daamian.myapp"
-    },
-    "plugins": [
-      "expo-dev-client",
-      [
-        "react-native-vision-camera",
-        {
-          "cameraPermissionText": "$(PRODUCT_NAME) potrzebne do robienia zdjęć.",
-          "enableMicrophonePermission": true,
-          "microphonePermissionText": "$(PRODUCT_NAME) potrzebne do nagrywania dźwięku."
-        }
-      ],
-      [
-        "@react-native-google-signin/google-signin"
-      ],
-      [
-        "expo-audio",
-        {
-          "microphonePermission": "Zezwól aplikacji na dostęp do mikrofonu, aby mierzyć głośność."
-        }
-      ],
-      "expo-router",
-      "expo-secure-store",
-      "expo-asset"
-    ],
-    "runtimeVersion": "1.0.0",
-    "updates": {
-      "url": "http://localhost:3000/api/manifest"
-    }
-  }
+	"expo": {
+		"version": "16.0",
+		"scheme": "my-app",
+		"web": {
+			"bundler": "metro"
+		},
+		"description": "Krótki opis aplikacji ArchKontrol",
+		"name": "ArchKontrol",
+		"slug": "my-app",
+		"icon": "./assets/images/architecture.png",
+		"extra": {
+			"eas": {
+				"projectId": "7ed077cc-feff-41a8-8495-1886e189aaec"
+			}
+		},
+		"android": {
+			"package": "com.daamian.myapp"
+		},
+		"ios": {
+			"bundleIdentifier": "com.daamian.myapp"
+		},
+		"plugins": [
+			"expo-dev-client",
+			[
+				"react-native-vision-camera",
+				{
+					"cameraPermissionText": "$(PRODUCT_NAME) potrzebne do robienia zdjęć.",
+					"enableMicrophonePermission": true,
+					"microphonePermissionText": "$(PRODUCT_NAME) potrzebne do nagrywania dźwięku."
+				}
+			],
+			["@react-native-google-signin/google-signin"],
+			[
+				"expo-audio",
+				{
+					"microphonePermission": "Zezwól aplikacji na dostęp do mikrofonu, aby mierzyć głośność."
+				}
+			],
+			[
+				"expo-location",
+				{
+					"locationAlwaysAndWhenInUsePermission": "Zezwól aplikacji na dostęp do lokalizacji, aby oznaczyć miejsce audytu."
+				}
+			],
+			"expo-router",
+			"expo-secure-store",
+			"expo-asset"
+		],
+		"runtimeVersion": "1.0.0",
+		"updates": {
+			"url": "http://localhost:3000/api/manifest"
+		}
+	}
 }
