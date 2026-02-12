@@ -86,7 +86,7 @@ const Welcome = () => {
 
 				<View className='h-px bg-gray-200 mt-4' />
 
-				<Text className='text-xs text-gray-400 text-center mt-4'>Wersja aplikacji: 17.8</Text>
+				<Text className='text-xs text-gray-400 text-center mt-4'>Wersja aplikacji: 18.0</Text>
 			</View>
 		</View>
 	)
