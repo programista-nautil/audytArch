@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons'
 import { Stack, useRouter, useFocusEffect } from 'expo-router'
 import Welcome from '../components/home/welcome/Welcome'
 import Popularjobs from '../components/home/popular/Popularjobs'
+import AuditLocationInput from '../components/home/common/AuditLocationInput'
 import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
 
@@ -134,6 +135,7 @@ const HomeScreen = () => {
 							</View>
 						)}
 
+						{userInfo && <AuditLocationInput />}
 						<Welcome />
 						<Popularjobs />
 						<TouchableOpacity

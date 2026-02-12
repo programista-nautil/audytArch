@@ -595,7 +595,8 @@ const DetailScreen = () => {
 					{openSections[index] && (
 						<View>
 							{(() => {
-								const shouldShowGPS = GPS_CATEGORIES.some(cat => element.name.startsWith(cat))
+								const sectionNumber = element.name.split(' ')[0]
+								const shouldShowGPS = GPS_CATEGORIES.includes(sectionNumber)
 
 								if (shouldShowGPS) {
 									return (
